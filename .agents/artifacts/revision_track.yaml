@@ -1,0 +1,99 @@
+name: "Track ôn tập phỏng vấn — kiến thức KHÔNG code trong SportPulse"
+created: 2026-09-07
+
+rationale: >-
+  Một số chủ đề trong JD (React Native, Redux-Saga, Native Modules, Release Store, khách hàng
+  US/EU) không thể học bằng cách build SportPulse: hoặc đối lập mục tiêu hiện đại hoá của project
+  (Redux-Saga — project chủ động thay bằng TanStack Query + Zustand), hoặc không phải code (release
+  ops, giao tiếp khách hàng). Quyết định (2026-09-07): tách track riêng, chạy SONG SONG sprint code,
+  KHÔNG tính vào task DEV/QA của scrum, KHÔNG cần qua gate chặn code của skill learn-then-build.
+
+mode: >-
+  Chỉ Q&A + quiz, KHÔNG tạo code file (trừ khi user chủ động xin demo, xem ngoại lệ ở
+  learn-then-build). Không có GATE chặn việc gì cả — vì đây là ôn kiến thức đã biết, không phải mở
+  khoá để viết code. Ghi log tại `.agents/artifacts/learning/revision_log.yaml` sau mỗi buổi.
+
+decisions:
+  - topic: Redux-Saga
+    treatment: quiz_only
+    note: >-
+      Ôn dựa trên kinh nghiệm thực chiến đã có (RN thế hệ cũ, theo hồ sơ), KHÔNG dựng lại module
+      trong SportPulse. Câu hỏi bám JD: generator/yield, takeEvery/takeLatest/takeLeading,
+      call/fork/spawn, race condition + cancel request khi chuyển màn hình, tổ chức store +
+      reselect chống re-render.
+  - topic: "Native Module Android (Kotlin/Java)"
+    treatment: skipped
+    note: >-
+      Quyết định (2026-09-07): KHÔNG build. Tập trung Swift/iOS làm điểm mạnh CV. Nếu phỏng vấn hỏi
+      Android, trả lời bằng đối chiếu khái niệm rút ra từ buổi học module Swift ở Sprint 5
+      (Vibrator API ~ UIImpactFeedbackGenerator, MediaPlayer ~ AVAudioPlayer,
+      RCTEventEmitter ~ DeviceEventManagerModule), không cần code Android thật.
+  - topic: "Release/CI-CD (App Store, Play Store, Apple Review, CodePush/EAS Update)"
+    treatment: revision_track
+    note: "Không phải code — thuộc track ôn tập này, chạy xen kẽ giữa các sprint."
+  - topic: "Behavioral & giao tiếp khách hàng US/EU (tiếng Anh)"
+    treatment: revision_track
+    note: "Luyện trả lời bằng tiếng Anh, kèm giải thích tiếng Việt khi cần."
+  - topic: "Core JavaScript (event loop, closure, prototype, shallow/deep copy)"
+    treatment: revision_track
+    note: "Kiến thức nền, ôn nhanh xen kẽ, không cần ví dụ riêng cho SportPulse."
+  - topic: "Chia sẻ code RN ↔ Next.js (hooks, types)"
+    treatment: revision_track
+    note: >-
+      JD tự xếp mục này là "nice-to-have". KHÔNG dựng app Next.js thật (quy mô tương đương việc
+      thêm Android — đã quyết định bỏ) — chỉ bàn nguyên tắc: tách business logic vào package/thư
+      mục thuần TypeScript không import React Native API, dùng chung type, UI tách riêng theo
+      platform.
+
+topics:
+  - id: R-001
+    topic: "Redux-Saga — generator & effects"
+    status: pending
+    questions_seed:
+      - "So sánh Thunk vs Saga: vì sao chọn Saga cho luồng phức tạp?"
+      - "Generator function (function*, yield) hoạt động thế nào, Saga tận dụng ra sao?"
+      - "takeEvery vs takeLatest vs takeLeading — cho 1 tình huống thực tế mỗi cái"
+      - "call vs fork vs spawn khác nhau ở đâu về error propagation"
+      - "Cancel request khi user chuyển màn hình liên tục — dùng effect nào, vì sao"
+      - "Tổ chức store tránh re-render toàn app — reselect/memoized selector hoạt động thế nào"
+
+  - id: R-002
+    topic: "Core JavaScript / ES6+"
+    status: pending
+    questions_seed:
+      - "Event loop: MacroTask vs MicroTask; Promise.then vs setTimeout ảnh hưởng render ra sao"
+      - "Prototype, closure, this binding trong ES6 — closure gây memory leak ở tình huống nào trên mobile"
+      - "Shallow copy vs deep copy — kỹ thuật tránh mutate nested state phức tạp"
+
+  - id: R-003
+    topic: "Release & CI/CD"
+    status: pending
+    questions_seed:
+      - "Quy trình release iOS: Certificates, Provisioning Profile, App Store Connect, TestFlight"
+      - "Quy trình release Android: Upload Keystore, .aab, Play Console tracks"
+      - "Apple Review rejection: Guideline 2.1 Performance, 4.8 Login with Apple, Account Deletion, Info.plist permission justification"
+      - "CodePush/EAS Update OTA — khi nào bắt buộc submit store thay vì đẩy OTA"
+
+  - id: R-004
+    topic: "Native Module — background thread & bảo mật"
+    status: pending
+    questions_seed:
+      - "Xử lý tác vụ nền nặng (giải nén, hash, tải file ngầm) ở native layer sao cho không block UI thread"
+      - "Cách export method/callback/Promise sang JS side, emit event về RN"
+      - "Lưu token/private key: Keychain (iOS) / Keystore (Android) vs AsyncStorage — vì sao"
+
+  - id: R-005
+    topic: "System Integration (nice-to-have)"
+    status: pending
+    questions_seed:
+      - "WebSocket reconnection + app state background/foreground + offline caching"
+      - "Nguyên tắc chia sẻ business logic/hooks/TS interface giữa RN và Next.js"
+
+  - id: R-006
+    topic: "Behavioral & Client Communication (English)"
+    status: pending
+    questions_seed:
+      - "Client US/EU đưa deadline phi thực tế — negotiate scope hoặc đề xuất giải pháp kỹ thuật thay thế thế nào"
+      - "Requirement mơ hồ từ remote client — cách làm rõ edge case, chuyển user story mơ hồ thành task kỹ thuật cụ thể"
+      - "Bất đồng kiến trúc trong team (Redux-Toolkit vs Saga, cấu trúc shared codebase) — xử lý sao"
+      - "Daily Scrum trong team hybrid/distributed — đảm bảo transparency về blocker"

@@ -1,15 +1,18 @@
 {
   "expo": {
-    "name": "sport-pulse",
-    "slug": "sport-pulse",
+    "name": "SportPulse",
+    "slug": "sportpulse",
+    "scheme": "sportpulse",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sportpulse.app"
     },
     "android": {
+      "package": "com.sportpulse.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",

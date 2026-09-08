@@ -1,0 +1,210 @@
+project_name: SportPulse
+description: >-
+  Sportainment mobile app (thể thao kết hợp giải trí) xây dựng 100% bằng stack React Native
+  hiện đại: Expo SDK mới nhất, Expo Router (file-based routing), TypeScript, TanStack Query
+  (server state), Zustand (client state), Reanimated 3 + Gesture Handler (UI 60/120 FPS),
+  FlashList, và custom Native Module viết bằng Swift qua Expo Modules API (JSI, New Architecture).
+  Mục tiêu kép: (1) tái hiện các tính năng Sportainment — tỉ số trực tiếp, chi tiết trận đấu,
+  video recap, minigame trivia, leaderboard; (2) làm bài thực chiến chuyển đổi kiến thức từ
+  RN thế hệ cũ (Bridge, Redux-Saga) sang New Architecture.
+
+tech_stack:
+  runtime: Expo SDK (latest) + expo-dev-client, New Architecture (Fabric/TurboModules) bật
+  language: TypeScript (strict)
+  routing: Expo Router v3+ (file-based, dynamic routes, modal, deep link)
+  server_state: TanStack Query v5
+  client_state: Zustand
+  realtime: WebSocket (mock server) — có thể thay bằng Supabase Realtime
+  animation: Reanimated 3 (worklets) + react-native-gesture-handler
+  lists: "@shopify/flash-list"
+  native: Expo Modules API (Swift) — module local `modules/audio-haptics`
+    # Quyết định 2026-09-07: KHÔNG build native module Android/Kotlin — xem interview_alignment.native_module_android
+
+conventions:
+  architecture: Feature-First. `app/` chỉ chứa route + composition, logic nằm ở `src/features/*`
+  layering: "app/ (route) → src/features/* (hooks + components + api) → src/lib (query client, ws client) → src/stores (zustand)"
+  rules:
+    - Route file trong `app/` không gọi trực tiếp fetch/axios; luôn đi qua hook của feature.
+    - Server data (danh sách trận, chi tiết, leaderboard, câu hỏi) chỉ nằm trong TanStack Query cache — cấm copy vào Zustand.
+    - Zustand chỉ giữ client state: auth session, sound/haptic setting, phiên chơi trivia đang diễn ra.
+    - Mọi base URL / WS URL đọc từ `src/lib/env.ts` (bọc `expo-constants` + `app.json` extra) — cấm hardcode trong feature.
+    - Quyền native (audio, haptics, notification) khai báo qua config plugin trong `app.json`, cấm sửa tay thư mục `ios/`, `android/`.
+    - Animation chạy trên UI thread bằng worklet — cấm dùng `Animated` (legacy) hoặc `setInterval` cho countdown hiển thị.
+    - Native module chỉ expose API qua `modules/audio-haptics/index.ts` có type; Presentation không import trực tiếp `requireNativeModule`.
+
+testing_policy: >-
+  KHÔNG viết unit test theo mặc định. Nhưng lý do KHÔNG PHẢI "ưu tiên tốc độ" (đây là dự án học,
+  tốc độ không phải mục tiêu) — mà là: quyết định test thuộc về user, không thuộc về Claude.
+  Quy tắc (user chốt 2026-09-07): khi Claude thấy một chỗ đáng được test — logic tính điểm trivia,
+  reducer/state machine, hàm parse dữ liệu, cache mutation của React Query — thì PHẢI HỎI user
+  trước, nêu rõ đáng test ở điểm nào và test sẽ bắt được lỗi gì; chỉ viết khi user đồng ý.
+  Cấm tự ý thêm test file, và cũng cấm im lặng bỏ qua khi thấy chỗ rủi ro — im lặng là vi phạm.
+  QA gate không bao giờ phụ thuộc test: gate = typecheck + lint/format + convention audit.
+
+interview_alignment:
+  context: >-
+    User đang chuẩn bị phỏng vấn cho JD (React Native, Redux-Saga, Native Modules, Release Store,
+    khách hàng US/EU). Quyết định 2026-09-07 về việc bộ câu hỏi này ánh xạ vào SportPulse thế nào —
+    xem đầy đủ tại `.agents/artifacts/revision_track.yaml`.
+  covered_by_sprints: >-
+    New Architecture (JSI/Fabric/TurboModules) → TASK-3 Sprint 1; FlashList & frame drop → F-006/F-008
+    Sprint 2, F-019 Sprint 5; Native Module iOS Swift → F-017/F-018 Sprint 5; SecureStore
+    (Keychain/Keystore) → F-016 Sprint 4; WebSocket reconnect + AppState → F-007 Sprint 2;
+    OOM/ảnh nặng → F-021 Sprint 2 (mới thêm).
+  native_module_android: >-
+    KHÔNG build. Quyết định vì user chọn tập trung Swift/iOS làm điểm mạnh CV, chấp nhận đối chiếu
+    lý thuyết (Vibrator API ~ UIImpactFeedbackGenerator, RCTEventEmitter ~ DeviceEventManagerModule)
+    rút ra từ buổi học module Swift ở Sprint 5, không code Android thật.
+  redux_saga: >-
+    KHÔNG dựng lại trong SportPulse (đối lập mục tiêu hiện đại hoá của project). Ôn bằng quiz
+    trong `revision_track.yaml`, dựa trên kinh nghiệm thực chiến đã có.
+  not_buildable_here: >-
+    Release/CI-CD (App Store, Play Store, Apple Review, CodePush/EAS Update), Core JS nền tảng,
+    Behavioral & giao tiếp tiếng Anh, chia sẻ code RN↔Next.js (JD tự xếp "nice-to-have") — tất cả
+    thuộc track ôn tập riêng, chạy song song sprint, KHÔNG tính vào task DEV/QA của scrum.
+
+sprints:
+  - sprint: 1
+    goal: >-
+      Dựng nền tảng Expo + TypeScript + Expo Router: khung navigation 3 tab, dynamic route,
+      modal, dev-client build được trên iOS Simulator.
+    status: pending
+    features:
+      - id: F-001
+        title: Khởi tạo dự án Expo + TypeScript strict
+        description: >-
+          Tạo project bằng create-expo-app (SDK mới nhất), bật TypeScript strict, cấu hình
+          path alias `@/*`, ESLint + Prettier, và bật New Architecture trong app.json.
+      - id: F-002
+        title: Expo Router — khung navigation Sportainment
+        description: >-
+          Root layout + auth guard placeholder, `(tabs)` với 3 tab (Live Scores, Trivia,
+          Leaderboard), dynamic route `match/[id]`, `recap/[matchId]` (fullscreen, ẩn tab),
+          và `modal/quiz-room` dạng modal vuốt.
+      - id: F-003
+        title: Config Plugins + Expo Dev Client
+        description: >-
+          Khai báo quyền Audio / Haptics / Push qua `app.json` plugins, scheme deep link
+          `sportpulse://`, và chạy được `npx expo run:ios` với expo-dev-client.
+      - id: F-004
+        title: Design system tối thiểu + env config
+        description: >-
+          Theme token (màu, spacing, typography), component tái dùng (Button, Card, Avatar,
+          ScoreBadge, EmptyState), và `src/lib/env.ts` đọc config từ `app.json extra`.
+
+  - sprint: 2
+    goal: >-
+      Live Scores hoạt động end-to-end: fetch + cache bằng TanStack Query, render bằng FlashList,
+      cập nhật tỉ số realtime qua WebSocket bằng cách mutate cache thay vì refetch.
+    status: pending
+    features:
+      - id: F-005
+        title: Mock API + domain types cho matches
+        description: >-
+          Mock server (msw hoặc Express local) trả về danh sách trận đấu, chi tiết trận,
+          timeline sự kiện. Định nghĩa type `Match`, `MatchEvent`, `Team` trong `src/features/matches/types.ts`.
+      - id: F-006
+        title: TanStack Query setup + feed danh sách trận đấu
+        description: >-
+          QueryClient + persistence, hook `useMatches()` (staleTime, background refetch,
+          pull-to-refresh), render feed bằng FlashList với skeleton + error/empty state.
+      - id: F-007
+        title: WebSocket client + realtime score cache mutation
+        description: >-
+          `src/lib/ws-client.ts` (kết nối, auto-reconnect có backoff, cleanup theo AppState).
+          Hook `useLiveScoreSync()` nhận event GOAL/CARD/STATUS và gọi `queryClient.setQueryData`
+          để cập nhật đúng 1 trận trong list + detail, không refetch toàn bộ.
+      - id: F-008
+        title: Màn chi tiết trận đấu `match/[id]`
+        description: >-
+          Tỉ số realtime, timeline sự kiện, tab bình luận trực tiếp (FlashList, danh sách lớn),
+          prefetch từ feed để mở màn không thấy loading.
+      - id: F-021
+        title: "Ảnh & bộ nhớ — tránh OOM với danh sách ảnh nặng"
+        description: >-
+          Thêm vào 2026-09-07 theo yêu cầu ôn phỏng vấn (mục "Bạn xử lý OOM khi render danh sách
+          ảnh độ phân giải cao như thế nào?"). Dùng `expo-image` cho logo đội/avatar trong feed và
+          timeline: giải thích cơ chế cache 2 tầng (memory + disk), downsampling theo kích thước
+          hiển thị thay vì decode full-res, và vì sao `Image` gốc của RN không tự làm việc này.
+
+  - sprint: 3
+    goal: >-
+      Minigame Trivia chơi được trọn vòng, tính điểm theo thời gian phản hồi, với countdown và
+      hiệu ứng lật/trượt thẻ chạy 60/120 FPS bằng Reanimated 3 worklets.
+    status: pending
+    features:
+      - id: F-009
+        title: Trivia hub + luồng vào phòng quiz
+        description: >-
+          Tab Trivia liệt kê quiz theo trận / theo chủ đề, mở `modal/quiz-room` bằng deep link
+          có param, xử lý huỷ giữa chừng (confirm trước khi dismiss modal).
+      - id: F-010
+        title: Game engine trivia (state machine + scoring)
+        description: >-
+          Zustand `gameStore` với state machine idle → question → locked → reveal → summary,
+          tính điểm thưởng theo thời gian còn lại, streak bonus, chống double-submit.
+      - id: F-011
+        title: Countdown timer bằng Reanimated worklet
+        description: >-
+          Thanh đếm ngược chạy hoàn toàn trên UI thread (`useSharedValue` + `withTiming` +
+          `useAnimatedStyle`), đổi màu khi sắp hết giờ, callback về JS bằng `runOnJS` đúng 1 lần khi hết giờ.
+      - id: F-012
+        title: Hiệu ứng thẻ câu hỏi (flip + swipe)
+        description: >-
+          Lật thẻ 3D khi reveal đáp án và vuốt sang câu kế bằng Gesture Handler + Reanimated,
+          không drop frame khi bật Performance Monitor.
+
+  - sprint: 4
+    goal: >-
+      Leaderboard realtime và trải nghiệm Recap video hoàn chỉnh — hai tính năng "giải trí"
+      còn lại của Sportainment.
+    status: pending
+    features:
+      - id: F-013
+        title: Leaderboard realtime + animation thứ hạng
+        description: >-
+          Bảng xếp hạng người chơi (FlashList), nhận cập nhật realtime, animate đổi vị trí bằng
+          layout animation của Reanimated, highlight hàng của chính user và ghim lên đầu.
+      - id: F-014
+        title: Màn Recap video `recap/[matchId]`
+        description: >-
+          Phát video recap fullscreen bằng expo-video, ẩn tab bar, khoá orientation landscape,
+          custom control (seek, mute, scrubber), giữ màn hình sáng khi đang phát.
+      - id: F-015
+        title: Deep Link / Universal Link
+        description: >-
+          Mở app đúng màn từ link `sportpulse://match/123`, `sportpulse://recap/123`,
+          `sportpulse://quiz/abc`, xử lý cold start và warm start.
+      - id: F-016
+        title: Auth session + persistence
+        description: >-
+          `authStore` (Zustand) + expo-secure-store, auth guard ở root layout, gắn user identity
+          vào leaderboard và điểm trivia.
+
+  - sprint: 5
+    goal: >-
+      Viết Native Module Swift (Expo Modules API/JSI) phát rung + âm thanh ăn mừng khi đội yêu
+      thích ghi bàn, rồi tối ưu hiệu năng và chốt build chạy trên device thật.
+    status: pending
+    features:
+      - id: F-017
+        title: Local Expo Module `audio-haptics` (Swift)
+        description: >-
+          Tạo bằng `npx create-expo-module --local`. Swift dùng `UIImpactFeedbackGenerator` và
+          `AVAudioPlayer` để phát rung mạnh + tiếng còi ăn mừng; expose hàm sync qua JSI và
+          TypeScript types trong `index.ts`.
+      - id: F-018
+        title: Tích hợp celebration vào luồng bàn thắng
+        description: >-
+          Khi WS báo GOAL của đội user follow → gọi native module, tôn trọng setting sound/haptic
+          trong Zustand, và no-op an toàn trên Android/web.
+      - id: F-019
+        title: Tối ưu hiệu năng & chống re-render
+        description: >-
+          Selector Zustand, `select` của TanStack Query, memo hoá row FlashList; đo bằng
+          React DevTools Profiler, đảm bảo realtime update không re-render toàn feed.
+      - id: F-020
+        title: Build & tài liệu bàn giao
+        description: >-
+          `npx expo run:ios` release chạy trên device thật, README ghi lại các quyết định
+          kiến trúc và bảng đối chiếu "cách cũ (Bridge/Saga) → cách mới (JSI/Query/Zustand)".

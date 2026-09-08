@@ -1,0 +1,37 @@
+concepts:
+- id: C-001
+  concept: Continuous Native Generation (CNG) — vì sao 'managed vs bare' không còn là lựa chọn nhị phân
+  task: TASK-1
+  date: 2026-09-07
+  gate: passed
+  weak_points:
+  - 'Câu 2 (silent drift): lần đầu chỉ trả lời chung chung ''conflict code lẫn nhau'', chưa nêu được cơ
+    chế cụ thể — app.json đổi nhưng ios/ đã commit không tự đồng bộ, không ai báo lỗi. Đã chốt lại và
+    hỏi follow-up, qua ở lần 2.'
+  - 'Câu 4 (eject vs prebuild): đáp án đúng (''không đồng nghĩa'') nhưng tự nhận chưa hiểu vì sao. Cần
+    chốt: ranh giới là HÀNH VI (có sửa tay native hay không), không phải trạng thái filesystem (có thư
+    mục ios/ hay không).'
+  files_written:
+  - Toàn bộ scaffold qua create-expo-app (App.tsx, index.ts, app.json, package.json, tsconfig.json, .gitignore)
+    — không phải code tự tay viết, mà là quan sát/giải thích output sinh ra, đúng tinh thần buổi học này.
+- id: C-002
+  concept: app.json là single source of truth cho cấu hình native — ranh giới với app.config.ts
+  task: TASK-2
+  date: '2026-09-07'
+  gate: passed
+  weak_points:
+  - 'Câu 4 (slug vs bundleIdentifier): lúc đầu chưa biết slug là gì / EAS là gì. Sau khi giải thích EAS
+    là dịch vụ cloud riêng của Expo và gợi ý bằng câu hỏi nhỏ hơn, tự kết luận đúng: ''slug chỉ dùng cho
+    Expo thôi''. Nhớ: nếu sau này đụng EAS Build/Submit lại thấy lạ, nhắc lại điểm này.'
+  files_written:
+  - 'app.json (chỉnh sửa: name, slug, scheme, ios.bundleIdentifier, android.package)'
+- id: C-003
+  concept: New Architecture — JSI/Fabric/TurboModule/Codegen, đối chiếu Bridge cũ
+  task: TASK-3
+  date: '2026-09-08'
+  gate: passed
+  weak_points: []
+  files_written:
+  - 'Không sửa file nào. Phát hiện qua tra cứu docs.expo.dev/v57.0.0: SDK 55+ chạy New Architecture vô
+    điều kiện, field newArchEnabled bị bỏ qua và Expo khuyến nghị không đặt. Đã xác nhận app.json không
+    có field này — đúng khuyến nghị, không cần thêm gì.'

@@ -1,0 +1,173 @@
+sprint_goal: >-
+  Dựng nền tảng SportPulse: project Expo SDK mới nhất + TypeScript strict, khung Expo Router
+  đầy đủ (3 tab + dynamic route + fullscreen recap + modal quiz), config plugin cho quyền native,
+  design system tối thiểu, và build chạy được trên iOS Simulator qua expo-dev-client.
+  Kết thúc sprint: điều hướng được tới mọi màn hình bằng placeholder, chưa cần data thật.
+
+backlog:
+  - id: F-001
+    title: Khởi tạo dự án Expo + TypeScript strict
+    description: >-
+      Tạo project bằng create-expo-app với template TypeScript, bật New Architecture,
+      cấu hình strict mode, path alias, ESLint + Prettier.
+    acceptance_criteria:
+      - "`npx tsc --noEmit` chạy sạch, `strict: true` trong tsconfig.json"
+      - "Path alias `@/*` trỏ vào `src/*` hoạt động ở cả TS và Metro (babel module-resolver hoặc tsconfig paths)"
+      - "`app.json` có `newArchEnabled: true`, `scheme: sportpulse`, bundleIdentifier + package name đã đặt"
+      - "ESLint + Prettier chạy được qua `npm run lint` và `npm run format:check`, không còn lỗi"
+      - "`.gitignore` loại trừ `ios/`, `android/`, `node_modules/`, `.expo/` (prebuild là artifact sinh ra)"
+
+  - id: F-002
+    title: Expo Router — khung navigation Sportainment
+    description: >-
+      Dựng toàn bộ cây route theo cấu trúc file-based đã thiết kế, mỗi màn hình là placeholder
+      có tiêu đề rõ ràng để verify điều hướng.
+    acceptance_criteria:
+      - "Cây route đúng: `app/_layout.tsx`, `app/(tabs)/_layout.tsx`, `(tabs)/index.tsx`, `(tabs)/trivia.tsx`, `(tabs)/leaderboard.tsx`, `app/match/[id].tsx`, `app/recap/[matchId].tsx`, `app/modal/quiz-room.tsx`"
+      - "Bottom tabs hiển thị 3 tab với icon + label tiếng Việt: Trực tiếp / Trivia / BXH"
+      - "Từ tab Trực tiếp bấm vào 1 card mẫu → push sang `match/[id]`, màn detail đọc và hiển thị đúng `id` từ `useLocalSearchParams`"
+      - "`recap/[matchId]` chạy fullscreen: ẩn tab bar và ẩn header (`presentation: fullScreenModal` hoặc `headerShown: false` + tabBar hidden)"
+      - "`modal/quiz-room` mở dạng modal vuốt xuống để đóng (`presentation: modal`), không phải push"
+      - "Root `_layout.tsx` có placeholder auth guard: đọc trạng thái từ stub và `Redirect` khi chưa đăng nhập (stub trả về đã đăng nhập trong sprint này)"
+      - "Route không tồn tại rơi vào `+not-found.tsx` với nút quay về Home"
+
+  - id: F-003
+    title: Config Plugins + Expo Dev Client
+    description: >-
+      Khai báo mọi quyền và cấu hình native qua app.json, cài expo-dev-client và build chạy được
+      trên iOS Simulator, không sửa tay thư mục ios/.
+    acceptance_criteria:
+      - "Quyền khai báo trong `app.json` plugins: microphone/audio (expo-audio hoặc expo-av), haptics, expo-notifications — kèm message tiếng Việt cho iOS usage description"
+      - "`npx expo prebuild --clean` chạy thành công và sinh ra `ios/` khớp cấu hình trong app.json"
+      - "`npx expo run:ios` build thành công và app mở được trên Simulator qua Dev Client"
+      - "Deep link `sportpulse://match/123` mở đúng màn match detail khi app đang chạy (warm start)"
+      - "Không có bất kỳ file nào trong `ios/` bị chỉnh sửa thủ công (mọi thay đổi native đều đi qua app.json / config plugin)"
+
+  - id: F-004
+    title: Design system tối thiểu + env config
+    description: >-
+      Theme token và bộ component tái dùng để các sprint sau không phải chế lại UI, cộng với
+      lớp env config tập trung.
+    acceptance_criteria:
+      - "`src/theme/` export token: colors (có dark mode), spacing scale, radius, typography — không hardcode màu/số trong component"
+      - "Component tái dùng trong `src/components/`: Button, Card, Avatar, ScoreBadge, EmptyState, LoadingSkeleton — đều có props typed, không dùng `any`"
+      - "`src/lib/env.ts` đọc `API_URL` và `WS_URL` từ `app.json > extra` qua `expo-constants`, throw lỗi rõ ràng lúc khởi động nếu thiếu"
+      - "Không tồn tại URL/domain hardcode nào ngoài `app.json` và `src/lib/env.ts` (grep xác nhận)"
+      - "App render đúng ở cả light và dark mode, safe area đúng trên thiết bị có notch"
+
+tasks:
+  - id: TASK-1
+    owner: DEV
+    description: >-
+      [F-001] Khởi tạo project bằng `npx create-expo-app@latest sport-pulse` (template TypeScript,
+      SDK mới nhất). Dọn code mẫu thừa. Bật `newArchEnabled: true`, đặt `scheme: sportpulse`,
+      bundleIdentifier `com.sportpulse.app`. Kết quả: `npx expo start` khởi động được.
+    depends_on: []
+
+  - id: TASK-2
+    owner: DEV
+    description: >-
+      [F-001] Cấu hình chất lượng code: tsconfig `strict: true` + path alias `@/*` → `src/*`
+      (đồng bộ babel/metro), cài ESLint (eslint-config-expo) + Prettier, thêm script
+      `lint`, `format`, `format:check`, `typecheck` vào package.json. Cập nhật `.gitignore`.
+    depends_on: [TASK-1]
+
+  - id: TASK-3
+    owner: DEV
+    description: >-
+      [F-004] Dựng `src/theme/` (colors light+dark, spacing, radius, typography) và
+      `src/lib/env.ts` đọc API_URL/WS_URL từ `app.json > extra` qua expo-constants, có validate
+      và thông báo lỗi rõ ràng khi thiếu biến.
+    depends_on: [TASK-2]
+
+  - id: TASK-4
+    owner: DEV
+    description: >-
+      [F-004] Viết bộ component tái dùng trong `src/components/`: Button (variant primary/ghost,
+      state loading/disabled), Card, Avatar, ScoreBadge (hiển thị tỉ số + trạng thái LIVE),
+      EmptyState, LoadingSkeleton. Tất cả đọc token từ theme, props typed đầy đủ.
+    depends_on: [TASK-3]
+
+  - id: TASK-5
+    owner: DEV
+    description: >-
+      [F-002] Dựng root layout `app/_layout.tsx`: Stack root, SafeAreaProvider, ThemeProvider,
+      GestureHandlerRootView, và placeholder auth guard (đọc stub `useAuthStub()`, `Redirect`
+      về `/login` khi chưa đăng nhập — stub trả về đã đăng nhập ở sprint này). Thêm `+not-found.tsx`.
+    depends_on: [TASK-4]
+
+  - id: TASK-6
+    owner: DEV
+    description: >-
+      [F-002] Dựng `app/(tabs)/_layout.tsx` với 3 tab (Trực tiếp / Trivia / BXH) kèm icon và
+      3 màn placeholder `index.tsx`, `trivia.tsx`, `leaderboard.tsx`. Tab Trực tiếp render vài
+      Card tĩnh dùng ScoreBadge để test điều hướng.
+    depends_on: [TASK-5]
+
+  - id: TASK-7
+    owner: DEV
+    description: >-
+      [F-002] Dựng các route ngoài tab: `app/match/[id].tsx` (đọc param bằng `useLocalSearchParams`,
+      hiển thị id), `app/recap/[matchId].tsx` (fullscreen, ẩn header + tab bar),
+      `app/modal/quiz-room.tsx` (`presentation: modal`, vuốt xuống đóng được). Nối điều hướng từ
+      Card ở tab Trực tiếp sang `match/[id]`.
+    depends_on: [TASK-6]
+
+  - id: TASK-8
+    owner: DEV
+    description: >-
+      [F-003] Cấu hình config plugins trong `app.json` cho audio, haptics và expo-notifications,
+      kèm iOS usage description tiếng Việt. Cài `expo-dev-client`. Cấm sửa tay `ios/`.
+    depends_on: [TASK-7]
+
+  - id: TASK-9
+    owner: DEV
+    description: >-
+      [F-003] Chạy `npx expo prebuild --clean` rồi `npx expo run:ios`, xác nhận app mở trên
+      Simulator qua Dev Client và deep link `sportpulse://match/123` điều hướng đúng màn.
+      Ghi lại lệnh chạy vào README.
+    depends_on: [TASK-8]
+
+  - id: TASK-10
+    owner: DEV
+    description: >-
+      Viết `dev_report@vN.yaml` trạng thái cuối sprint và README ngắn (cấu trúc thư mục,
+      convention feature-first, cách chạy dev client) làm tài liệu cho các sprint sau.
+    depends_on: [TASK-9]
+
+  - id: TASK-11
+    owner: QA
+    description: >-
+      Static analysis: `npx tsc --noEmit` phải sạch và `npx expo run:ios` build không lỗi
+      → `static_analysis_passed`. Chạy `npm run lint` (ESLint) và fold kết quả vào cùng boolean.
+    depends_on: [TASK-10]
+
+  - id: TASK-12
+    owner: QA
+    description: >-
+      Formatting: chạy `npm run format:check` (Prettier --check) → `formatting_passed`.
+      Nếu chưa cấu hình formatter thì set true và ghi chú trong `notes`.
+    depends_on: [TASK-10]
+
+  - id: TASK-13
+    owner: QA
+    description: >-
+      Convention audit → `convention_audit_passed`. Kiểm đủ các điểm:
+      (1) Route trong `app/` không chứa business logic hay gọi fetch trực tiếp;
+      (2) Không có màu/spacing hardcode trong component — mọi giá trị đọc từ `src/theme`;
+      (3) Không có URL/domain hardcode ngoài `app.json` và `src/lib/env.ts` (grep);
+      (4) Không có file nào trong `ios/` bị sửa tay — mọi cấu hình native đi qua app.json plugin;
+      (5) tsconfig `strict: true`, không có `any` ngầm hay `@ts-ignore` mới;
+      (6) Cấu trúc thư mục khớp thiết kế `app/ | src/features | src/components | src/stores | src/lib | modules/`.
+      Ghi mọi vi phạm vào `bugs_found`.
+    depends_on: [TASK-11, TASK-12]
+
+  - id: TASK-14
+    owner: QA
+    description: >-
+      Kiểm thủ công acceptance criteria điều hướng trên Simulator: 3 tab chuyển được;
+      card → `match/[id]` hiện đúng id; `recap/[matchId]` fullscreen ẩn tab bar;
+      `modal/quiz-room` vuốt xuống đóng được; route sai rơi vào `+not-found`;
+      deep link `sportpulse://match/123` mở đúng màn. Viết `qa_report@v1.yaml` và
+      chỉ set `release_ready: true` khi cả 3 boolean true và `bugs_found` rỗng.
+    depends_on: [TASK-13]

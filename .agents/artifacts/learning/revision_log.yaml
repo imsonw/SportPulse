@@ -1,0 +1,8 @@
+# Log các buổi ôn tập của revision_track.yaml — cùng tinh thần concept_log.yaml nhưng KHÔNG có code.
+sessions: []
+# schema mỗi entry:
+# - id: RS-001
+#   topic_id: R-001          # trỏ vào topics[].id trong revision_track.yaml
+#   date: YYYY-MM-DD
+#   status: reviewed | needs_revisit
+#   weak_points: [STR]       # câu trả lời lệch, nhắc lại lần ôn sau

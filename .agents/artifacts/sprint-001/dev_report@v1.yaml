@@ -1,0 +1,37 @@
+status: in_progress
+tasks_completed:
+  - TASK-1
+  - TASK-2
+  - TASK-3
+tasks_in_progress: []
+remaining_tasks:
+  - TASK-4
+  - TASK-5
+  - TASK-6
+  - TASK-7
+  - TASK-8
+  - TASK-9
+  - TASK-10
+  - TASK-11
+  - TASK-12
+  - TASK-13
+  - TASK-14
+  - TASK-15
+  - TASK-16
+  - TASK-17
+  - TASK-18
+  - TASK-19
+  - TASK-20
+  - TASK-21
+  - TASK-22
+  - TASK-23
+  - TASK-24
+  - TASK-25
+notes: >-
+  Sprint chạy theo learning_mode của sprint_plan@v2.yaml — mỗi task là 1 buổi học qua gate quiz
+  (xem .agents/artifacts/learning/concept_log.yaml). TASK-3 phát hiện sprint_plan@v2 mô tả sai
+  thực tế: SDK 57 (react-native 0.86.3, expo ~57.0.20) chạy New Architecture VÔ ĐIỀU KIỆN từ
+  SDK 55 trở lên, field `newArchEnabled` bị bỏ qua và Expo khuyến nghị không đặt field này.
+  Đã xác nhận app.json hiện tại không có field này (đúng khuyến nghị). Task hoàn thành ở dạng
+  xác minh + hiệu chỉnh hiểu biết, KHÔNG sửa file — không cần vá lại sprint_plan@v2 vì lý thuyết
+  JSI/Fabric/TurboModule/Codegen dạy trong buổi vẫn đúng, chỉ khung "flag bật/tắt" là lỗi thời.

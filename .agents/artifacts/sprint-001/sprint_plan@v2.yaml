@@ -1,0 +1,429 @@
+sprint_goal: >-
+  Dựng nền tảng SportPulse: project Expo SDK mới nhất + TypeScript strict, khung Expo Router
+  đầy đủ (3 tab + dynamic route + fullscreen recap + modal quiz), config plugin cho quyền native,
+  design system tối thiểu, và build chạy được trên iOS Simulator qua expo-dev-client.
+  Kết thúc sprint: điều hướng được tới mọi màn hình bằng placeholder, chưa cần data thật.
+
+learning_mode:
+  enabled: true
+  skill: learn-then-build
+  rationale: >-
+    Đây là dự án vừa học vừa thực hành, KHÔNG tối ưu cho tốc độ. So với @v1, mỗi task ở đây được
+    tách nhỏ tới mức "một task = một khái niệm = một buổi học". Task không còn là đơn vị công việc,
+    mà là đơn vị NHẬN THỨC — vì vậy có task chỉ sinh ra 3 dòng config, và điều đó là bình thường.
+  cadence: "1 khái niệm = 1 buổi; tối đa 1 file được viết mỗi lượt"
+  gate: >-
+    Mỗi task phải qua quiz bắt buộc (3-5 câu, người học trả lời bằng chữ, Claude chấm) TRƯỚC khi
+    được viết code. Chưa qua gate thì không tạo file.
+  changes_from_v1:
+    - "10 task DEV của @v1 tách thành 25 task DEV theo khái niệm (24 buổi học + 1 task tổng kết)."
+    - "Mỗi task DEV thêm 3 trường mở rộng: `concept` (khái niệm của buổi), `learning_objective` (sau buổi này giải thích được gì), `gate_focus` (quiz sẽ đào vào đâu)."
+    - "Trường `deliverable` ghi rõ output cụ thể — thường là đúng MỘT file, để chống tái diễn việc tạo file hàng loạt."
+    - "Backlog và acceptance_criteria giữ nguyên từ @v1 (vẫn đúng, không cần sửa)."
+    - "Thứ tự học được sắp lại: khái niệm nền tảng (CNG, New Architecture) đi TRƯỚC thao tác khởi tạo, vì chúng quyết định cách đọc mọi thứ sinh ra sau đó."
+
+backlog:
+  - id: F-001
+    title: Khởi tạo dự án Expo + TypeScript strict
+    description: >-
+      Tạo project bằng create-expo-app với template TypeScript, bật New Architecture,
+      cấu hình strict mode, path alias, ESLint + Prettier.
+    acceptance_criteria:
+      - "`npx tsc --noEmit` chạy sạch, `strict: true` trong tsconfig.json"
+      - "Path alias `@/*` trỏ vào `src/*` hoạt động ở cả TS và Metro (babel module-resolver hoặc tsconfig paths)"
+      - "`app.json` có `newArchEnabled: true`, `scheme: sportpulse`, bundleIdentifier + package name đã đặt"
+      - "ESLint + Prettier chạy được qua `npm run lint` và `npm run format:check`, không còn lỗi"
+      - "`.gitignore` loại trừ `ios/`, `android/`, `node_modules/`, `.expo/` (prebuild là artifact sinh ra)"
+
+  - id: F-002
+    title: Expo Router — khung navigation Sportainment
+    description: >-
+      Dựng toàn bộ cây route theo cấu trúc file-based đã thiết kế, mỗi màn hình là placeholder
+      có tiêu đề rõ ràng để verify điều hướng.
+    acceptance_criteria:
+      - "Cây route đúng: `app/_layout.tsx`, `app/(tabs)/_layout.tsx`, `(tabs)/index.tsx`, `(tabs)/trivia.tsx`, `(tabs)/leaderboard.tsx`, `app/match/[id].tsx`, `app/recap/[matchId].tsx`, `app/modal/quiz-room.tsx`"
+      - "Bottom tabs hiển thị 3 tab với icon + label tiếng Việt: Trực tiếp / Trivia / BXH"
+      - "Từ tab Trực tiếp bấm vào 1 card mẫu → push sang `match/[id]`, màn detail đọc và hiển thị đúng `id` từ `useLocalSearchParams`"
+      - "`recap/[matchId]` chạy fullscreen: ẩn tab bar và ẩn header (`presentation: fullScreenModal` hoặc `headerShown: false` + tabBar hidden)"
+      - "`modal/quiz-room` mở dạng modal vuốt xuống để đóng (`presentation: modal`), không phải push"
+      - "Root `_layout.tsx` có placeholder auth guard: đọc trạng thái từ stub và `Redirect` khi chưa đăng nhập (stub trả về đã đăng nhập trong sprint này)"
+      - "Route không tồn tại rơi vào `+not-found.tsx` với nút quay về Home"
+
+  - id: F-003
+    title: Config Plugins + Expo Dev Client
+    description: >-
+      Khai báo mọi quyền và cấu hình native qua app.json, cài expo-dev-client và build chạy được
+      trên iOS Simulator, không sửa tay thư mục ios/.
+    acceptance_criteria:
+      - "Quyền khai báo trong `app.json` plugins: microphone/audio (expo-audio hoặc expo-av), haptics, expo-notifications — kèm message tiếng Việt cho iOS usage description"
+      - "`npx expo prebuild --clean` chạy thành công và sinh ra `ios/` khớp cấu hình trong app.json"
+      - "`npx expo run:ios` build thành công và app mở được trên Simulator qua Dev Client"
+      - "Deep link `sportpulse://match/123` mở đúng màn match detail khi app đang chạy (warm start)"
+      - "Không có bất kỳ file nào trong `ios/` bị chỉnh sửa thủ công (mọi thay đổi native đều đi qua app.json / config plugin)"
+
+  - id: F-004
+    title: Design system tối thiểu + env config
+    description: >-
+      Theme token và bộ component tái dùng để các sprint sau không phải chế lại UI, cộng với
+      lớp env config tập trung.
+    acceptance_criteria:
+      - "`src/theme/` export token: colors (có dark mode), spacing scale, radius, typography — không hardcode màu/số trong component"
+      - "Component tái dùng trong `src/components/`: Button, Card, Avatar, ScoreBadge, EmptyState, LoadingSkeleton — đều có props typed, không dùng `any`"
+      - "`src/lib/env.ts` đọc `API_URL` và `WS_URL` từ `app.json > extra` qua `expo-constants`, throw lỗi rõ ràng lúc khởi động nếu thiếu"
+      - "Không tồn tại URL/domain hardcode nào ngoài `app.json` và `src/lib/env.ts` (grep xác nhận)"
+      - "App render đúng ở cả light và dark mode, safe area đúng trên thiết bị có notch"
+
+# ============================================================================
+# MODULE 1 — Nền tảng Expo & lớp native (F-001, F-003) — 6 buổi
+# Mục tiêu module: gỡ bỏ phản xạ "mở Xcode sửa tay" từ nền Native iOS.
+# ============================================================================
+tasks:
+  - id: TASK-1
+    owner: DEV
+    concept: "Continuous Native Generation (CNG) — vì sao 'managed vs bare' không còn là lựa chọn nhị phân"
+    learning_objective: >-
+      Giải thích được ios/ và android/ là ARTIFACT SINH RA từ app.json, không phải source code;
+      và vì sao mở Xcode sửa tay là hành vi tự huỷ trong mô hình này.
+    gate_focus: >-
+      Bẫy đối chiếu Native iOS: "Tôi cần thêm một key vào Info.plist thì làm ở đâu?" —
+      nếu trả lời 'mở Xcode' là chưa qua gate.
+    description: >-
+      Học khái niệm CNG, sau đó khởi tạo project bằng `npx create-expo-app@latest sport-pulse`
+      (template TypeScript, SDK mới nhất) và cùng đọc hiểu từng thư mục/file được sinh ra.
+    deliverable: "Project khởi tạo xong + giải thích được vai trò từng file gốc"
+    depends_on: []
+
+  - id: TASK-2
+    owner: DEV
+    concept: "app.json là single source of truth cho cấu hình native; khi nào cần app.config.ts"
+    learning_objective: >-
+      Phân biệt được cấu hình TĨNH (app.json) và cấu hình ĐỘNG (app.config.ts — đọc biến môi trường,
+      đổi theo build variant), và biết vì sao dự án này bắt đầu bằng cái tĩnh.
+    gate_focus: "slug vs name vs scheme vs bundleIdentifier — cái nào ảnh hưởng gì, đổi sau được không"
+    description: >-
+      Đặt `name`, `slug`, `scheme: sportpulse`, `ios.bundleIdentifier: com.sportpulse.app`,
+      `android.package`. Giải thích hệ quả của từng giá trị.
+    deliverable: "app.json (chỉnh sửa)"
+    depends_on: [TASK-1]
+
+  - id: TASK-3
+    owner: DEV
+    concept: "New Architecture — JSI / Fabric / TurboModules, đối chiếu Bridge cũ"
+    learning_objective: >-
+      Giải thích được vì sao Bridge cũ chậm (bất đồng bộ, serialize JSON, gom batch) và JSI thay đổi
+      điều gì về CƠ CHẾ (gọi hàm C++ đồng bộ, chia sẻ bộ nhớ) — không chỉ nói 'nhanh hơn'.
+    gate_focus: >-
+      Đây là khái niệm nền cho cả Sprint 3 (worklet) và Sprint 5 (native module Swift).
+      Quiz phải đào tới mức: 'một lệnh gọi native đi qua những gì, ở Bridge và ở JSI?'
+    description: >-
+      Bật `newArchEnabled: true` trong app.json và xác nhận app vẫn chạy. Code rất ít,
+      nhưng khái niệm là xương sống của toàn dự án.
+    deliverable: "app.json (bật New Architecture)"
+    depends_on: [TASK-2]
+
+  - id: TASK-4
+    owner: DEV
+    concept: "Expo Dev Client vs Expo Go — vì sao Go không đủ cho dự án này"
+    learning_objective: >-
+      Giải thích được Expo Go là một app CÓ SẴN với tập native module cố định, còn Dev Client là
+      app của CHÍNH BẠN có runtime dev — nên chỉ Dev Client mới nhúng được module Swift ở Sprint 5.
+    gate_focus: "Khi nào Expo Go báo lỗi 'module not found' và vì sao rebuild JS không cứu được"
+    description: "Cài `expo-dev-client` và giải thích nó chèn vào vòng đời build ở đâu."
+    deliverable: "package.json (thêm dependency)"
+    depends_on: [TASK-3]
+
+  - id: TASK-5
+    owner: DEV
+    concept: "Config Plugin — khai báo quyền và cấu hình native bằng JavaScript"
+    learning_objective: >-
+      Giải thích được config plugin là hàm biến đổi (mod) chạy lúc prebuild để ghi vào Info.plist /
+      AndroidManifest — tức là cách 'sửa native' hợp lệ duy nhất trong mô hình CNG.
+    gate_focus: >-
+      Nối lại TASK-1: giờ người học phải trả lời được câu hỏi Info.plist bằng đúng cơ chế plugin.
+    description: >-
+      Khai báo plugin cho audio, haptics và expo-notifications trong `app.json`, kèm iOS usage
+      description bằng tiếng Việt.
+    deliverable: "app.json (mảng plugins)"
+    depends_on: [TASK-4]
+
+  - id: TASK-6
+    owner: DEV
+    concept: "Vòng đời prebuild — ios/ sinh ra, bị xoá, và vì sao phải nằm trong .gitignore"
+    learning_objective: >-
+      Giải thích được `--clean` xoá gì, vì sao commit thư mục ios/ sẽ gây xung đột, và ranh giới
+      khi nào buộc phải 'eject' thật sự.
+    gate_focus: "Nếu lỡ commit ios/ rồi thì chuyện gì xảy ra ở lần prebuild kế tiếp"
+    description: >-
+      Chạy `npx expo prebuild --clean`, quan sát thư mục sinh ra, cập nhật `.gitignore`
+      (ios/, android/, .expo/, node_modules/), rồi `npx expo run:ios` mở app trên Simulator.
+    deliverable: ".gitignore + app chạy được trên Simulator"
+    depends_on: [TASK-5]
+
+# ============================================================================
+# MODULE 2 — TypeScript & tooling (F-001) — 3 buổi
+# ============================================================================
+  - id: TASK-7
+    owner: DEV
+    concept: "tsconfig strict thực sự bật những gì, và vì sao nó quan trọng hơn khi bỏ Redux"
+    learning_objective: >-
+      Kể được các cờ con của strict (đặc biệt strictNullChecks, noImplicitAny) và giải thích vì sao
+      khi bỏ Redux thì ranh giới dữ liệu mất chỗ dựa runtime, nên phải bù bằng kiểu tĩnh.
+    gate_focus: "Đưa đoạn code có giá trị `undefined` lọt lưới — hỏi cờ nào bắt được nó"
+    description: "Bật `strict: true` trong tsconfig.json và xử lý lỗi phát sinh."
+    deliverable: "tsconfig.json"
+    depends_on: [TASK-6]
+
+  - id: TASK-8
+    owner: DEV
+    concept: "Module resolution hai tầng — TypeScript typecheck khác Metro bundle"
+    learning_objective: >-
+      Giải thích được vì sao khai báo alias trong tsconfig là CHƯA ĐỦ: tsc chỉ kiểm tra kiểu,
+      còn Metro mới là thứ thực sự tìm file lúc bundle — nên phải cấu hình cả hai.
+    gate_focus: >-
+      "Alias chạy đúng trong VSCode nhưng app crash 'Unable to resolve module' — chuyện gì xảy ra?"
+      Đây là bẫy kinh điển, phải trả lời được trước khi code.
+    description: "Cấu hình path alias `@/*` → `src/*` ở cả tsconfig.json và tầng bundler."
+    deliverable: "tsconfig.json + cấu hình bundler"
+    depends_on: [TASK-7]
+
+  - id: TASK-9
+    owner: DEV
+    concept: "ESLint và Prettier là hai công việc khác nhau, không phải một"
+    learning_objective: >-
+      Phân biệt được lint (bắt lỗi logic/pattern nguy hiểm) và format (thẩm mỹ, không đổi ngữ nghĩa),
+      và vì sao trộn chúng vào nhau gây rối khi CI fail.
+    gate_focus: "Cho 2 vấn đề trong code — hỏi cái nào ESLint bắt, cái nào Prettier sửa"
+    description: >-
+      Cài eslint-config-expo + Prettier, thêm npm scripts `lint`, `format`, `format:check`,
+      `typecheck`.
+    deliverable: "cấu hình ESLint/Prettier + package.json scripts"
+    depends_on: [TASK-8]
+
+# ============================================================================
+# MODULE 3 — Expo Router (F-002) — 10 buổi, phần nặng nhất của sprint
+# Mục tiêu module: thay mental model 'khai báo navigator bằng tay' bằng 'cấu trúc file LÀ route'.
+# ============================================================================
+  - id: TASK-10
+    owner: DEV
+    concept: "File-based routing — cấu trúc thư mục chính là bảng route"
+    learning_objective: >-
+      Giải thích được vì sao không còn file khai báo navigator tập trung, và hệ quả: đổi tên file
+      = đổi URL, tạo file = tạo route. Đối chiếu React Navigation kiểu cũ.
+    gate_focus: "Cho một cây thư mục — hỏi ngược lại URL tương ứng của từng màn"
+    description: "Viết `app/_layout.tsx` tối thiểu: một Stack root, chưa có provider gì."
+    deliverable: "app/_layout.tsx"
+    depends_on: [TASK-9]
+
+  - id: TASK-11
+    owner: DEV
+    concept: "Layout lồng nhau — `_layout.tsx` là COMPONENT, không phải file cấu hình"
+    learning_objective: >-
+      Giải thích được layout lồng nhau tạo ra cây provider tự nhiên, và vì sao provider toàn cục
+      phải đặt ở root layout chứ không phải trong từng màn.
+    gate_focus: "Đặt GestureHandlerRootView sai chỗ thì hỏng cái gì, và vì sao lỗi khó thấy"
+    description: >-
+      Bổ sung vào root layout: SafeAreaProvider, GestureHandlerRootView, ThemeProvider
+      (placeholder, theme thật làm ở TASK-20).
+    deliverable: "app/_layout.tsx (mở rộng)"
+    depends_on: [TASK-10]
+
+  - id: TASK-12
+    owner: DEV
+    concept: "Route group `(tabs)` — thư mục có mà URL không có"
+    learning_objective: >-
+      Giải thích được dấu ngoặc tròn nhóm file để dùng chung layout mà KHÔNG tạo thêm một cấp
+      trong URL — và vì sao thiếu nó thì đường dẫn thành `/tabs/home`.
+    gate_focus: "Phân biệt (tabs) với [id] và với +not-found — ba loại cú pháp tên file khác nhau"
+    description: "Tạo `app/(tabs)/_layout.tsx` với component Tabs."
+    deliverable: "app/(tabs)/_layout.tsx"
+    depends_on: [TASK-11]
+
+  - id: TASK-13
+    owner: DEV
+    concept: "Tabs.Screen — prop `name` trỏ tới TÊN FILE, không phải đường dẫn"
+    learning_objective: >-
+      Giải thích được vì sao `name` phải khớp tên file, và vì sao khai báo thừa/thiếu Tabs.Screen
+      lại làm tab biến mất hoặc mọc thêm tab lạ.
+    gate_focus: "File tên index.tsx nhưng khai báo name='home' — chuyện gì xảy ra?"
+    description: >-
+      Tạo 3 màn placeholder `(tabs)/index.tsx` (Trực tiếp), `(tabs)/trivia.tsx`,
+      `(tabs)/leaderboard.tsx` kèm icon + label tiếng Việt.
+    deliverable: "3 file màn hình placeholder (ngoại lệ cho phép: cùng một pattern lặp lại)"
+    depends_on: [TASK-12]
+
+  - id: TASK-14
+    owner: DEV
+    concept: "Dynamic route `[id].tsx` và `useLocalSearchParams`"
+    learning_objective: >-
+      Giải thích được vì sao param LUÔN là string (đến từ URL), nên phải parse/validate trước khi
+      dùng — và khác biệt giữa useLocalSearchParams và useGlobalSearchParams.
+    gate_focus: "Truyền id số vào route rồi so sánh `===` với số — vì sao sai?"
+    description: "Tạo `app/match/[id].tsx` đọc và hiển thị id; nối điều hướng từ card ở tab Trực tiếp."
+    deliverable: "app/match/[id].tsx"
+    depends_on: [TASK-13]
+
+  - id: TASK-15
+    owner: DEV
+    concept: "Route ngoài tab & cách ẩn tab bar cho màn fullscreen"
+    learning_objective: >-
+      Giải thích được vì sao đặt file NGOÀI thư mục (tabs) là cách ẩn tab bar đúng đắn, thay vì
+      ẩn bằng style hay điều kiện render.
+    gate_focus: "Nếu đặt recap vào trong (tabs) rồi ẩn tab bar bằng CSS thì hỏng ở đâu"
+    description: "Tạo `app/recap/[matchId].tsx` chạy fullscreen, ẩn header và tab bar."
+    deliverable: "app/recap/[matchId].tsx"
+    depends_on: [TASK-14]
+
+  - id: TASK-16
+    owner: DEV
+    concept: "Presentation modes — modal vs push vs fullScreenModal"
+    learning_objective: >-
+      Giải thích được modal không chỉ là hiệu ứng động: nó thay đổi ngăn xếp điều hướng và hành vi
+      back/dismiss — nối thẳng tới yêu cầu 'confirm trước khi thoát quiz' ở Sprint 3.
+    gate_focus: "Người dùng vuốt xuống giữa lúc đang làm quiz — luồng nào chạy, state đi đâu?"
+    description: "Tạo `app/modal/quiz-room.tsx` với `presentation: modal`, vuốt xuống đóng được."
+    deliverable: "app/modal/quiz-room.tsx"
+    depends_on: [TASK-15]
+
+  - id: TASK-17
+    owner: DEV
+    concept: "Route đặc biệt `+not-found` và cú pháp catch-all `[...rest]`"
+    learning_objective: "Giải thích được thứ tự ưu tiên khi một URL khớp nhiều route."
+    gate_focus: "URL khớp cả [id] lẫn catch-all — cái nào thắng, vì sao"
+    description: "Tạo `app/+not-found.tsx` với nút quay về Home."
+    deliverable: "app/+not-found.tsx"
+    depends_on: [TASK-16]
+
+  - id: TASK-18
+    owner: DEV
+    concept: "Deep Linking — vì sao Expo Router tự sinh linking config"
+    learning_objective: >-
+      Giải thích được scheme nối với cây route ra sao, và khác biệt giữa cold start và warm start
+      khi mở link.
+    gate_focus: "App đang đóng hoàn toàn, người dùng bấm link — thứ tự khởi tạo diễn ra thế nào?"
+    description: "Kiểm chứng `sportpulse://match/123` mở đúng màn ở cả warm start và cold start."
+    deliverable: "Xác minh deep link (có thể không sinh file mới)"
+    depends_on: [TASK-17]
+
+  - id: TASK-19
+    owner: DEV
+    concept: "Auth guard — `<Redirect>` vs `useEffect` + navigate (race condition)"
+    learning_objective: >-
+      Giải thích được vì sao điều hướng trong useEffect gây nháy màn hình và race với quá trình
+      mount router, còn Redirect xử lý ngay trong lượt render.
+    gate_focus: >-
+      "Session đọc từ SecureStore là bất đồng bộ — trong lúc chờ, guard nên render gì?"
+      Đây là bẫy thật sự, sai là app nháy về login mỗi lần mở.
+    description: >-
+      Thêm placeholder auth guard vào root layout, đọc stub `useAuthStub()` (sprint này luôn trả
+      về đã đăng nhập); auth thật làm ở Sprint 4 / F-016.
+    deliverable: "app/_layout.tsx (thêm guard)"
+    depends_on: [TASK-18]
+
+# ============================================================================
+# MODULE 4 — Design system & env config (F-004) — 5 buổi
+# ============================================================================
+  - id: TASK-20
+    owner: DEV
+    concept: "Design token & dark mode — vì sao không hardcode màu"
+    learning_objective: >-
+      Giải thích được token là một lớp gián tiếp (indirection) cho phép đổi giao diện ở một nơi,
+      và vì sao dark mode gần như miễn phí khi có token nhưng rất đắt khi không có.
+    gate_focus: "useColorScheme trả về gì khi hệ thống đổi theme lúc app đang chạy"
+    description: "Tạo `src/theme/` gồm colors (light + dark), spacing, radius, typography."
+    deliverable: "src/theme/"
+    depends_on: [TASK-19]
+
+  - id: TASK-21
+    owner: DEV
+    concept: "Chiến lược styling (StyleSheet vs inline vs NativeWind) & variant API cho component"
+    learning_objective: >-
+      Nêu được trade-off của từng hướng và tự CHỌN một hướng cho dự án — đây là buổi người học
+      quyết định, không phải Claude quyết định thay.
+    gate_focus: "Vì sao style object tạo mới mỗi lần render lại là vấn đề, và khi nào thì không"
+    description: "Viết component Button (variant primary/ghost, state loading/disabled) theo hướng đã chọn."
+    deliverable: "src/components/Button.tsx"
+    depends_on: [TASK-20]
+
+  - id: TASK-22
+    owner: DEV
+    concept: "(Lặp pattern — không có khái niệm mới, thuộc diện phá lệ #2 của skill học tập)"
+    learning_objective: "Củng cố bằng lặp lại; người học nhận ra khi nào một việc đã trở thành cơ học."
+    gate_focus: "Không cần gate. Nếu người học thấy vẫn lạ tay thì quay lại TASK-21."
+    description: >-
+      Viết nốt Card, Avatar, ScoreBadge (tỉ số + trạng thái LIVE), EmptyState, LoadingSkeleton
+      theo đúng pattern của Button.
+    deliverable: "src/components/ (5 file, cùng một pattern đã học)"
+    depends_on: [TASK-21]
+
+  - id: TASK-23
+    owner: DEV
+    concept: "Cấu hình môi trường & sự thật phũ phàng: KHÔNG có secret nào an toàn trong app client"
+    learning_objective: >-
+      Giải thích được vì sao mọi thứ nhúng vào bundle đều đọc được, nên `extra` chỉ chứa cấu hình
+      công khai; và vì sao vẫn cần gom về một chỗ (đổi môi trường, chống hardcode rải rác).
+    gate_focus: "Nhét API key vào app.json extra — ai đọc được nó, bằng cách nào?"
+    description: >-
+      Viết `src/lib/env.ts` đọc API_URL/WS_URL từ `app.json > extra` qua expo-constants,
+      validate và báo lỗi rõ ràng lúc khởi động nếu thiếu.
+    deliverable: "src/lib/env.ts"
+    depends_on: [TASK-22]
+
+  - id: TASK-24
+    owner: DEV
+    concept: "Safe area & edge-to-edge — insets khác padding cố định"
+    learning_objective: >-
+      Giải thích được vì sao hardcode paddingTop hỏng trên máy khác nhau, và khi nào dùng
+      SafeAreaView so với useSafeAreaInsets.
+    gate_focus: "Màn fullscreen recap có nên bọc SafeAreaView không — vì sao?"
+    description: "Áp dụng safe area đúng cho tab layout và các màn fullscreen."
+    deliverable: "Điều chỉnh layout hiện có"
+    depends_on: [TASK-23]
+
+  - id: TASK-25
+    owner: DEV
+    concept: "(Tổng kết sprint — không phải buổi học)"
+    learning_objective: "Tự viết lại được bằng lời của mình những gì đã học — phép thử hiểu bài tốt nhất."
+    gate_focus: "Không có gate. Người học tự viết phần 'nắm được gì', Claude chỉ bổ sung chỗ thiếu."
+    description: >-
+      Viết README (cấu trúc thư mục, convention feature-first, cách chạy dev client),
+      `dev_report@vN.yaml`, và chốt `.agents/artifacts/learning/concept_log.yaml` cho 24 buổi.
+    deliverable: "README.md + dev_report + concept_log"
+    depends_on: [TASK-24]
+
+# ============================================================================
+# QA — chạy thẳng, KHÔNG qua gate học (kiểm tra máy móc, không có khái niệm mới)
+# ============================================================================
+  - id: TASK-26
+    owner: QA
+    description: >-
+      Static analysis: `npx tsc --noEmit` sạch và `npx expo run:ios` build không lỗi
+      → `static_analysis_passed`. Chạy `npm run lint` và fold kết quả vào cùng boolean.
+    depends_on: [TASK-25]
+
+  - id: TASK-27
+    owner: QA
+    description: >-
+      Formatting: `npm run format:check` (Prettier --check) → `formatting_passed`.
+    depends_on: [TASK-25]
+
+  - id: TASK-28
+    owner: QA
+    description: >-
+      Convention audit → `convention_audit_passed`. Kiểm đủ:
+      (1) Route trong `app/` không chứa business logic hay fetch trực tiếp;
+      (2) Không có màu/spacing hardcode trong component — đọc từ `src/theme`;
+      (3) Không có URL/domain hardcode ngoài `app.json` và `src/lib/env.ts` (grep);
+      (4) Không file nào trong `ios/` bị sửa tay — mọi cấu hình native qua app.json plugin;
+      (5) tsconfig `strict: true`, không có `any` ngầm hay `@ts-ignore` mới;
+      (6) Cấu trúc thư mục khớp thiết kế `app/ | src/features | src/components | src/stores | src/lib | modules/`.
+    depends_on: [TASK-26, TASK-27]
+
+  - id: TASK-29
+    owner: QA
+    description: >-
+      Kiểm thủ công acceptance criteria điều hướng trên Simulator: 3 tab chuyển được;
+      card → `match/[id]` hiện đúng id; `recap/[matchId]` fullscreen ẩn tab bar;
+      `modal/quiz-room` vuốt xuống đóng được; route sai rơi vào `+not-found`;
+      deep link `sportpulse://match/123` mở đúng màn (cả cold start).
+      Viết `qa_report@v1.yaml`; chỉ set `release_ready: true` khi cả 3 boolean true và `bugs_found` rỗng.
+    depends_on: [TASK-28]
