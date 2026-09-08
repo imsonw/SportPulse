@@ -23,6 +23,16 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "SportPulse cần truy cập micro để bạn tham gia phòng Trivia và nhận định bằng giọng nói."
+        }
+      ],
+      "expo-haptics",
+      "expo-notifications"
+    ]
   }
 }

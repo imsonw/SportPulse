@@ -35,3 +35,21 @@ concepts:
   - 'Không sửa file nào. Phát hiện qua tra cứu docs.expo.dev/v57.0.0: SDK 55+ chạy New Architecture vô
     điều kiện, field newArchEnabled bị bỏ qua và Expo khuyến nghị không đặt. Đã xác nhận app.json không
     có field này — đúng khuyến nghị, không cần thêm gì.'
+- id: C-004
+  concept: Expo Dev Client vs Expo Go — vì sao Go không đủ cho dự án này
+  task: TASK-4
+  date: '2026-09-08'
+  gate: passed
+  weak_points:
+  - 'Phần phân biệt app riêng vs app SportPulse: người học ban đầu chưa rõ Dev Client là app riêng hay chính app SportPulse. Đã giải thích rõ: Dev Client chính là bản build SportPulse của chính dự án (gắn thêm menu dev), khác hoàn toàn ứng dụng Expo Go chung trên App Store.'
+  files_written:
+  - 'package.json (thêm dependency expo-dev-client)'
+- id: C-005
+  concept: Config Plugin — khai báo quyền và cấu hình native bằng JavaScript
+  task: TASK-5
+  date: '2026-09-08'
+  gate: passed
+  weak_points:
+  - 'Hỏi thêm về khả năng Localize xin quyền: Đã giải thích cơ chế InfoPlist.strings (iOS) và strings.xml (Android) cũng như vai trò của message trong app.json đóng vai trò Fallback Language.'
+  files_written:
+  - 'app.json (khai báo mảng plugins cho expo-audio, expo-haptics, expo-notifications)'

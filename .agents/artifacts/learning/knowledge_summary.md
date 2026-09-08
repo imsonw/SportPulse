@@ -144,3 +144,70 @@ tin giả định viết từ trước (kể cả giả định của chính spr
 > **build time**, sinh code C++/ObjC/Java từ spec TypeScript, bắt lỗi sai kiểu lúc biên dịch thay
 > vì runtime. Tóm lại: khác biệt cốt lõi không phải "nhanh hơn" chung chung, mà là **bỏ hẳn bước
 > serialize + hàng đợi bất đồng bộ, thay bằng lời gọi hàm trực tiếp qua JSI**.
+
+---
+
+## Buổi 4 — TASK-4: Expo Dev Client vs Expo Go — vì sao Go không đủ cho dự án này
+**Ngày:** 2026-09-08
+
+**Vấn đề:** Ứng dụng Expo Go chỉ là một bản build ứng dụng chung cố định (Pre-compiled Binary) từ Expo team đăng tải lên App Store / Google Play. Khi dự án thêm các thư viện chứa mã Native custom (Swift/Kotlin/C++) hoặc config plugin đặc thù không nằm trong SDK cố định của Expo Go, Expo Go sẽ báo lỗi `Module not found` hoặc `Native module cannot be null`.
+
+**Mental model:**
+- **Expo Go**: App chung của Expo trên App Store + Metro JS loader. Không hỗ trợ mã Native custom ngoài danh sách có sẵn.
+- **Expo Dev Client (`expo-dev-client`)**: Bản build ứng dụng **SportPulse** của chính bạn (`com.sportpulse.app`), chứa đầy đủ mã Native custom + Dev Menu UI (lắc máy, quét QR, đổi server Metro, xem log).
+- **Production Build**: Bản build ứng dụng **SportPulse** chính thức phát hành trên App Store / TestFlight (đã gỡ bỏ Dev Menu UI để tối ưu dung lượng và bảo mật).
+
+**Đối chiếu:**
+| Tiêu chí | Expo Go | Expo Dev Client (Dev Build) | Production Build |
+|---|---|---|---|
+| **Bản chất** | App chung từ App Store | App **SportPulse** của chính bạn | App **SportPulse** chính thức |
+| **Native Code** | Cố định (chỉ có sẵn Expo SDK) | **Không giới hạn** (Custom Swift/Kotlin/Plugins) | **Không giới hạn** |
+| **Dev Tools** | Có (Metro loader, QR scanner) | Có (`expo-dev-client` nhúng trong app) | Không |
+
+**Bẫy:**
+- Nhầm tưởng Expo Dev Client là một ứng dụng bên thứ ba khác (Sai — nó chính là ứng dụng SportPulse của bạn trên Simulator/Thiết bị thật có nhúng thêm Dev Menu UI).
+- Tưởng xóa cache hay restart Metro (`npx expo start --clear`) sẽ sửa được lỗi thiếu Native module trên Expo Go (Sai — Metro chỉ đóng gói JS Bundle, tầng Native binary của Expo Go chưa từng được biên dịch cùng mã native mới).
+- Cố cài thư viện khác phiên bản tương thích với Expo SDK mà không dùng `npx expo install` (gây mismatch tên hàm Native ở tầng JSI/Bridge).
+
+**Quyết định & Thực thi:**
+Cài đặt `expo-dev-client` vào `package.json` qua `npx expo install expo-dev-client`. Đã xác nhận `package.json` bổ sung `"expo-dev-client": "~57.0.18"`.
+
+**Câu hỏi phỏng vấn liên quan:**
+
+> **Q: Khi nào dự án Expo của bạn buộc phải chuyển từ Expo Go sang Expo Dev Client (Development Build), và sự khác biệt về mặt kiến trúc giữa hai mô hình này là gì?**
+> A: Dự án buộc phải chuyển sang Dev Client ngay khi xuất hiện các yêu cầu nằm ngoài tập thư viện cố định của Expo Go: cài các thư viện React Native của bên thứ 3 chứa native code custom (như Bluetooth BLE, WebRTC, Firebase Native SDK...), dùng custom Config Plugin đặc thù, hoặc tự viết module Swift/Kotlin riêng. Về mặt kiến trúc: Expo Go là một ứng dụng **Pre-compiled Binary** cố định do Expo team đăng lên App Store để làm "trình duyệt JS". Còn Expo Dev Client là bản build **dự án của chính bạn** (biên dịch đầy đủ mọi thư viện Native qua `expo prebuild` + Xcode) có nhúng thêm gói `expo-dev-client` để cung cấp giao diện Developer Tools (lắc máy, quét QR, hot reload JS) trực tiếp bên trong ứng dụng.
+
+---
+
+## Buổi 5 — TASK-5: Config Plugin — Khai báo quyền và cấu hình Native bằng JavaScript
+**Ngày:** 2026-09-08
+
+**Vấn đề:** Trong mô hình CNG, các thư mục `ios/` và `android/` chỉ là **ARTIFACT SINH RA**. Nếu lập trình viên sửa thủ công `Info.plist` trong Xcode hay `AndroidManifest.xml` trong Android Studio, các thay đổi đó sẽ bị **xóa sạch** ở lần prebuild kế tiếp.
+
+**Mental model:**
+- Config Plugin là các hàm JS/TS chạy ở **Build-time** (Node.js) khi thực hiện `npx expo prebuild`.
+- Plugin đóng vai trò như các "con thoi/mod tự động" can thiệp vào AST để sửa file XML (`Info.plist` / `AndroidManifest.xml` / `Podfile`) một cách an toàn và nhất quán.
+
+**Đối chiếu:**
+| Tiêu chí | Config Plugin | Runtime Library |
+|---|---|---|
+| **Môi trường** | Máy lập trình viên (Node.js) | Điện thoại người dùng (JS Engine) |
+| **Thời điểm** | Build-time (`npx expo prebuild`) | Runtime (khi app đang chạy) |
+| **Khai báo** | `app.json` (mảng `"plugins"`) | Trong file `.tsx` (`import * as Haptics...`) |
+
+**Bẫy:**
+- Mở Xcode / Android Studio sửa tay permission description (sẽ mất sạch ở lần `expo prebuild --clean` kế tiếp).
+- Viết thông điệp xin quyền mơ hồ (Apple sẽ Reject app theo Guideline 5.1.1).
+- Trộn lẫn nhiệm vụ của Config Plugin (tạo cấu hình Native lúc build) với Runtime Library (thực thi hàm lúc app chạy).
+
+**Quyết định & Thực thi:**
+Cấu hình mảng `"plugins"` trong [app.json](file:///Users/babo/Documents/project/SportPulse/app.json#L27-L36):
+- `expo-audio` kèm `microphonePermission` giải thích bằng Tiếng Việt rõ ràng cho phòng Trivia/Quiz giọng nói.
+- `expo-haptics`.
+- `expo-notifications`.
+
+**Câu hỏi phỏng vấn liên quan:**
+
+> **Q: Trong ứng dụng Expo, làm thế nào để khai báo các quyền truy cập Native (như Microphone, Location, Push Notification) và câu giải thích lý do xin quyền mà không làm vi phạm nguyên tắc Continuous Native Generation (CNG)?**
+> A: Khai báo các thư viện native dưới dạng **Config Plugins** trong mảng `"plugins"` của file `app.json` kèm theo đối tượng tùy chỉnh (options) chứa thông điệp xin quyền. Khi chạy `npx expo prebuild`, các hàm plugin này sẽ đóng vai trò như các mod chạy ở Build-time (Node.js) để can thiệp và tự động ghi các key tương ứng (như `NSMicrophoneUsageDescription`) vào file `Info.plist` hay `AndroidManifest.xml`. Cách làm này đảm bảo mã cấu hình native được lưu trữ ở duy nhất một nơi tĩnh (`app.json`), không bị mất đi khi prebuild lại và tuyệt đối tránh việc sửa tay trực tiếp trong Xcode/Android Studio.
+
