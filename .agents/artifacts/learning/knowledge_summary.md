@@ -201,7 +201,7 @@ Cài đặt `expo-dev-client` vào `package.json` qua `npx expo install expo-dev
 - Trộn lẫn nhiệm vụ của Config Plugin (tạo cấu hình Native lúc build) với Runtime Library (thực thi hàm lúc app chạy).
 
 **Quyết định & Thực thi:**
-Cấu hình mảng `"plugins"` trong [app.json](file:///Users/babo/Documents/project/SportPulse/app.json#L27-L36):
+Cấu hình mảng `"plugins"` trong [app.json](file:///Users/sion-dev/Documents/my_project/SportPulse/app.json#L27-L36):
 - `expo-audio` kèm `microphonePermission` giải thích bằng Tiếng Việt rõ ràng cho phòng Trivia/Quiz giọng nói.
 - `expo-haptics`.
 - `expo-notifications`.
@@ -347,5 +347,73 @@ Trộn lẫn Linter và Formatter khiến CI pipeline và Git hook bị rối lo
 > **Q: Trong quy trình CI/CD cho dự án React Native, tại sao người ta khuyến nghị tách riêng bước `lint` (ESLint) và bước `format:check` (Prettier) thay vì tích hợp Prettier chạy trực tiếp bên trong ESLint plugin?**
 > A: Tách riêng giúp phân loại chính xác **bản chất của lỗi** và tối ưu tốc độ CI. ESLint chuyên đóng vai trò "chẩn đoán lỗi logic" (như missing deps trong `useEffect`, unhandled promise, unused vars) — nếu bước `lint` fail, đó là **lỗi chất lượng code nghiêm trọng** bắt buộc dev phải sửa logic. Còn Prettier chỉ chuyên về "thẩm mỹ trình bày" — nếu bước `format:check` fail, dev chỉ cần chạy `npm run format` để công cụ tự tự động sửa trong 1 giây mà không phải sửa tay từng dấu ngoặc. Tách riêng cũng giúp ESLint chạy nhanh hơn gấp nhiều lần vì không phải gánh thêm phần tính toán layout/formatting.
 
+---
+
+## Buổi 10 — TASK-10: File-based routing — cấu trúc thư mục chính là bảng route
+**Ngày:** 2026-09-08
+
+**Vấn đề:** React Navigation kiểu cũ cần một file khai báo navigator tập trung (liệt kê từng
+Screen bằng tay). Expo Router bỏ hẳn file đó — **cấu trúc thư mục trong `app/` chính là bảng route**.
+
+**Mental model:** Tạo file = tạo route. Đổi tên file = đổi URL. `index.ts` không còn đăng ký
+`App.tsx` trực tiếp nữa — nó trỏ vào `expo-router/entry`, để Expo Router tự quét `app/` và dựng
+bảng route lúc khởi động.
+
+**Đối chiếu cũ → mới:** `NavigationContainer` + `Stack.Navigator` khai báo tay từng `<Screen>` →
+thay bằng cây thư mục vật lý. `router.push()` vs `router.navigate()` không tương đương: `push`
+luôn thêm màn mới vào Stack (kể cả khi đã có sẵn), `navigate` nhảy về màn đã tồn tại trong Stack
+nếu có, chỉ push mới khi chưa tồn tại — chọn sai gây tích luỹ Stack vô nghĩa.
+
+**Bẫy:** viết đường dẫn thiếu dấu `/` ở đầu (VD `match/456` thay vì `/match/456`) — Expo Router
+resolve theo route hiện tại nếu thiếu dấu `/`, dễ sai khi gọi từ màn đã nested sâu; nên luôn viết
+route tuyệt đối từ gốc.
+
+**Quyết định:** `index.ts` đổi sang `import 'expo-router/entry'`. `app/_layout.tsx` dựng Root Stack
+tối thiểu.
+
+**Câu hỏi phỏng vấn liên quan** *(câu hỏi khả dĩ — đúng chủ đề "cấu trúc app/navigation" hay bị hỏi
+khi CV có Expo Router):*
+
+> **Q: Expo Router khác React Navigation truyền thống ở điểm cốt lõi nào?**
+> A: Không còn file khai báo navigator tập trung — cấu trúc thư mục trong `app/` **chính là** bảng
+> route. Tạo file mới = tự động có route mới, không cần đăng ký thủ công. Điều này cũng đổi cách
+> điều hướng: phải phân biệt `router.push()` (luôn thêm màn mới vào stack) và `router.navigate()`
+> (quay lại màn đã có nếu tồn tại, tránh chồng stack vô nghĩa) — chọn nhầm cái nào cũng gây bug
+> điều hướng tinh vi, khó thấy ngay lúc code.
+
+---
+
+## Buổi 11 — TASK-11: Layout lồng nhau — `_layout.tsx` là COMPONENT, không phải file cấu hình
+**Ngày:** 2026-09-08
+
+**Vấn đề:** Dễ nhầm `_layout.tsx` là một file khai báo (kiểu JSON/config) vì tên gọi nghe giống
+vậy. Thực ra nó là **component React bình thường** — nghĩa là provider toàn cục (gesture handler,
+safe area, theme...) phải được **render** ở đây, đúng vị trí, đúng thứ tự lồng nhau.
+
+**Mental model:** Layout lồng nhau tạo cây provider tự nhiên theo đúng cấu trúc thư mục. Thứ tự
+lồng quan trọng: `GestureHandlerRootView` phải ở **ngoài cùng** với `flex: 1` (thiếu `flex: 1` gây
+lỗi âm thầm — view co về kích thước 0×0, gesture không bắt được gì mà không có thông báo lỗi rõ
+ràng); `SafeAreaProvider` bọc quanh `Stack` để mọi màn con dùng `useSafeAreaInsets()` lấy đúng toạ
+độ notch/status bar/dynamic island.
+
+**Đối chiếu cũ → mới:** Kiểu cũ, các provider này thường được đặt một lần ở `App.tsx` gốc, chỉ có
+một điểm vào. Với layout lồng nhau, phải chủ động nghĩ provider nào cần ở root, provider nào chỉ
+cần trong một nhánh con cụ thể — đặt sai chỗ có thể làm provider bị unmount/remount ngoài ý muốn
+khi điều hướng.
+
+**Bẫy:** quên `flex: 1` trên `GestureHandlerRootView` → lỗi im lặng, không exception, chỉ là UI
+biến mất hoặc gesture không hoạt động — rất khó debug nếu không biết nguyên nhân trước.
+
+**Quyết định:** `app/_layout.tsx` bọc `GestureHandlerRootView` (có `flex: 1`) → `SafeAreaProvider`
+→ `Stack`. Nhân tiện nâng cấp `eslint.config.js` sang Flat Config chuẩn ESLint 9 cho SDK 57.
+
+**Câu hỏi phỏng vấn liên quan** *(câu hỏi khả dĩ):*
+
+> **Q: Bạn bọc `GestureHandlerRootView` nhưng cử chỉ vuốt trong app không hoạt động, không có lỗi
+> nào hiện ra. Bạn nghi ngờ điều gì đầu tiên?**
+> A: Khả năng cao thiếu `style={{ flex: 1 }}` trên `GestureHandlerRootView`. Không có flex, view
+> này co về kích thước 0×0 theo mặc định của React Native — không throw lỗi, chỉ đơn giản là không
+> có diện tích nào để bắt gesture. Đây là lỗi "âm thầm" kinh điển của thư viện này, luôn kiểm tra
+> đầu tiên trước khi đào sâu vào logic gesture cụ thể.
 
 
