@@ -53,3 +53,47 @@ concepts:
   - 'Hỏi thêm về khả năng Localize xin quyền: Đã giải thích cơ chế InfoPlist.strings (iOS) và strings.xml (Android) cũng như vai trò của message trong app.json đóng vai trò Fallback Language.'
   files_written:
   - 'app.json (khai báo mảng plugins cho expo-audio, expo-haptics, expo-notifications)'
+- id: C-006
+  concept: Vòng đời prebuild — ios/ sinh ra, bị xoá, và vì sao phải nằm trong .gitignore
+  task: TASK-6
+  date: '2026-09-08'
+  gate: passed
+  weak_points:
+  - 'Phân biệt gói autolink vs gói dùng config plugin: lúc đầu đưa cả expo-haptics vào plugins[] trong app.json gây lỗi CLI loader. Đã giải thích rõ: chỉ các gói cần can thiệp InfoPlist/Manifest mới cần plugin, còn gói thuần native autolink như expo-haptics thì tự động nhận.'
+  files_written:
+  - '.gitignore (cập nhật nhận diện rõ CNG artifacts /ios, /android)'
+  - 'app.json (gỡ expo-haptics khỏi plugins array)'
+- id: C-007
+  concept: tsconfig strict thực sự bật những gì, và vì sao nó quan trọng hơn khi bỏ Redux
+  task: TASK-7
+  date: '2026-09-08'
+  gate: passed
+  weak_points:
+  - 'Nhắc nhở phân biệt 2 cách xử lý undefined: Safe Access (optional chaining ?.) thích hợp cho inline render UI, nhưng với các luồng màn hình chính nên ưu tiên Early Return / Type Guard để không render khung rỗng khi chưa có dữ liệu.'
+  files_written:
+  - 'tsconfig.json (xác minh cấu hình strict: true và chạy sạch npx tsc --noEmit)'
+- id: C-008
+  concept: Module resolution hai tầng — TypeScript typecheck khác Metro bundle
+  task: TASK-8
+  date: '2026-09-08'
+  gate: passed
+  weak_points:
+  - 'Phát hiện deprecation trong TS 6.0: baseUrl bị deprecate khi dùng paths tương đối trong TS 5.4+/6.0+. Cấu hình sạch chỉ cần paths: { "@/*": ["./src/*"] } trong tsconfig.json.'
+  files_written:
+  - 'tsconfig.json (cấu hình paths alias @/* -> ./src/* chuẩn TypeScript 6.0)'
+- id: C-009
+  concept: ESLint và Prettier là hai công việc khác nhau, không phải một
+  task: TASK-9
+  date: '2026-09-08'
+  gate: passed
+  weak_points:
+  - 'Phân biệt rõ 2 loại QA script: npm run lint (bắt bug/code smell qua ESLint) và npm run format:check (soi quy chuẩn format qua Prettier). Không lạm dụng ESLint để fix formatting.'
+  files_written:
+  - '.eslintrc.js (cấu hình expo + prettier rules)'
+  - '.prettierrc (cấu hình singleQuote, trailingComma, printWidth)'
+  - '.prettierignore (loại trừ artifacts/ và node_modules/)'
+  - 'package.json (bổ sung scripts typecheck, lint, format, format:check)'
+
+
+
+

@@ -211,3 +211,141 @@ Cấu hình mảng `"plugins"` trong [app.json](file:///Users/babo/Documents/pro
 > **Q: Trong ứng dụng Expo, làm thế nào để khai báo các quyền truy cập Native (như Microphone, Location, Push Notification) và câu giải thích lý do xin quyền mà không làm vi phạm nguyên tắc Continuous Native Generation (CNG)?**
 > A: Khai báo các thư viện native dưới dạng **Config Plugins** trong mảng `"plugins"` của file `app.json` kèm theo đối tượng tùy chỉnh (options) chứa thông điệp xin quyền. Khi chạy `npx expo prebuild`, các hàm plugin này sẽ đóng vai trò như các mod chạy ở Build-time (Node.js) để can thiệp và tự động ghi các key tương ứng (như `NSMicrophoneUsageDescription`) vào file `Info.plist` hay `AndroidManifest.xml`. Cách làm này đảm bảo mã cấu hình native được lưu trữ ở duy nhất một nơi tĩnh (`app.json`), không bị mất đi khi prebuild lại và tuyệt đối tránh việc sửa tay trực tiếp trong Xcode/Android Studio.
 
+---
+
+## Buổi 6 — TASK-6: Vòng đời Prebuild & CNG Artifacts
+**Ngày:** 2026-09-08
+
+**Vấn đề:** 
+Lập trình viên từ stack cũ quen commit mọi file trong `ios/` & `android/` vào Git. Khi có sự thay đổi về cấu hình native trong `app.json` hoặc nâng cấp SDK, các thư mục native trong Git sẽ bị lệch khỏi cấu hình nguồn (*silent drift*), dẫn đến lỗi xung đột code native không thể tháo gỡ hoặc app crash lúc chạy thật.
+
+**Mental model:**
+- Thư mục `ios/` & `android/` trong CNG **tương tự như thư mục `dist/` hoặc `build/`** trong dự án Web/TypeScript.
+- `app.json` + Config Plugins + Dependencies = **Source Code gốc (Single Source of Truth)**.
+- `npx expo prebuild --clean` là thao tác xoá sạch các thư mục native cũ và sinh lại từ đầu (Reproducible Pure Build Artifact).
+
+**Đối chiếu cũ → mới:**
+| Tiêu chí | Native iOS / Bare RN cũ | Expo CNG (Continuous Native Generation) |
+|---|---|---|
+| **Vai trò của `ios/`** | Source code chính chủ, **commit vào Git** | Build artifact sinh ra tự động, **nằm trong `.gitignore`** |
+| **Sửa đổi Native** | Xcode (`Info.plist`, `Podfile`, `AppDelegate`) | `app.json` & Config Plugins JS |
+| **Reset cấu hình Native** | Sửa tay từng dòng diff Xcode/Pods | `npx expo prebuild --clean` |
+
+**Bẫy:**
+1. Lầm tưởng `expo prebuild` là hành động "Eject" cố định không thể quay lại Managed Workflow (Sai — prebuild trong CNG là thao tác lặp lại được vô số lần).
+2. Đưa các gói thuần Native Autolink (như `expo-haptics`) vào mảng `plugins` trong `app.json` khiến Config Plugin loader báo lỗi không tìm thấy `app.plugin.js`. Chỉ các gói có Config Plugin can thiệp `Info.plist`/`Manifest` (như `expo-audio`, `expo-notifications`) mới nằm trong mảng `plugins`.
+
+**Quyết định & Thực thi:**
+1. Cập nhật [`.gitignore`](file:///Users/sion-dev/Documents/my_project/SportPulse/.gitignore) bổ sung ghi chú rõ ràng về CNG Native Artifacts (`/ios`, `/android`).
+2. Điều chỉnh [`app.json`](file:///Users/sion-dev/Documents/my_project/SportPulse/app.json) gỡ `"expo-haptics"` khỏi mảng `plugins` (vì `expo-haptics` tự autolink qua Expo Modules API mà không cần config plugin riêng).
+3. Chạy thành công `npx expo prebuild --clean --no-install` xác nhận sinh thư mục native sạch sẽ từ `app.json`.
+
+**Câu hỏi phỏng vấn liên quan:**
+
+> **Q: Lập trình viên trong team lỡ commit thư mục `ios/` lên Git và tự ý mở Xcode sửa thủ công một key trong `Info.plist`. Hai hậu quả lớn nhất hệ thống CNG của Expo sẽ gặp phải ở các lần prebuild tiếp theo là gì?**
+> A: **Thứ nhất**, bất kỳ chỉnh sửa thủ công nào trực tiếp trong Xcode đều sẽ bị **xoá sạch không báo trước** ngay khi ai đó trong team gõ lệnh `npx expo prebuild --clean`. **Thứ hai**, nếu lỡ commit `ios/` vào Git, khi các thành viên khác cập nhật `app.json` hoặc cài thêm Config Plugin mới và prebuild lại, Git sẽ xảy ra **silent drift** (lệch cấu hình native) và sinh ra hàng trăm diff xung đột không thể merge thủ công ở file `project.pbxproj` hay `Podfile`. Vì vậy trong CNG, `ios/` và `android/` bắt buộc phải nằm trong `.gitignore`.
+
+---
+
+## Buổi 7 — TASK-7: TypeScript Strict Mode & Lá chắn Runtime
+**Ngày:** 2026-09-08
+
+**Vấn đề:** 
+Khi từ bỏ Redux-Saga để chuyển sang Zustand + TanStack Query, dữ liệu từ server đi trực tiếp vào các UI Hook. Trong quá trình fetch (`isLoading = true`), `data` trả về luôn là `undefined`. Nếu không có `strictNullChecks`, trình biên dịch sẽ không cảnh báo và ứng dụng sẽ crash lập tức khi render với lỗi `TypeError: Cannot read property 'X' of undefined`.
+
+**Mental model:**
+- `strict: true` trong TypeScript đóng vai trò tương tự hệ thống **Type Safety & Optionals của Swift Compiler**.
+- Ép buộc xử lý mọi trường hợp `undefined` / `null` ngay tại thời điểm Compile-time thay vì để trôi ra Runtime.
+
+**Đối chiếu cũ → mới:**
+| Tiêu chí | Redux + Saga (Stack cũ) | TanStack Query + Zustand (Stack mới) |
+|---|---|---|
+| **Quản lý Nullable Data** | Reducer có initial state bọc sẵn, bọc qua Reselect | `useQuery` nhận trực tiếp từ Server, ban đầu luôn `undefined` |
+| **Bảo vệ Runtime** | Trông chờ vào `try-catch` trong Saga | **`strictNullChecks` là tấm lá chắn duy nhất** |
+| **Ép kiểu (`as any`, `!`)** | Lỗi runtime có thể bị nuốt trôi | **Là "hành vi tự sát"** làm vô hiệu hoá trình biên dịch |
+
+**Bẫy:**
+1. Dùng `!` (Non-null assertion) hoặc `as any` để "dập" cảnh báo của TypeScript mà không kiểm tra thực tế, làm app crash ở runtime khi data thực sự bị `undefined`.
+2. Không phân biệt 2 cách xử lý: Safe Access (`?.` + `??`) thích hợp render inline UI nhỏ; còn Early Return / Type Guard thích hợp cho các màn hình chính để không render UI rỗng.
+
+**Quyết định & Thực thi:**
+1. Xác minh file [`tsconfig.json`](file:///Users/sion-dev/Documents/my_project/SportPulse/tsconfig.json) có cấu hình `"strict": true` kế thừa từ `expo/tsconfig.base`.
+2. Thực thi `npx tsc --noEmit` xác nhận toàn bộ dự án sạch lỗi Typecheck.
+
+**Câu hỏi phỏng vấn liên quan:**
+
+> **Q: Khi chuyển đổi ứng dụng từ Redux-Saga sang TanStack Query + Zustand, tại sao cấu hình `strict: true` (đặc biệt là `strictNullChecks`) lại trở thành yếu tố bắt buộc chứ không còn là tuỳ chọn?**
+> A: Ở kiến trúc Redux-Saga cũ, dữ liệu thường được bọc qua Initial State của Reducer hoặc Selector nên hiếm khi bị `undefined` đột ngột ở UI component. Nhưng với TanStack Query, dữ liệu từ server đi trực tiếp vào Hook — trong thời gian `isLoading`, `data` **luôn có giá trị là `undefined`**. Nếu không bật `strictNullChecks`, trình biên dịch sẽ không bắt buộc bạn kiểm tra giá trị `undefined`, dẫn đến việc UI cố truy cập thuộc tính con và crash ứng dụng lập tức với lỗi `Cannot read property 'x' of undefined`. `strictNullChecks` giúp chuyển toàn bộ các nguy cơ crash runtime này thành lỗi compile-time ngay khi gõ code.
+
+---
+
+## Buổi 8 — TASK-8: Module Resolution 2 Tầng (TypeScript vs Metro Bundler)
+**Ngày:** 2026-09-08
+
+**Vấn đề:** 
+Đường dẫn tương đối `../../../../components/Button` dài và dễ gãy. Tuy nhiên, nếu chỉ khai báo Path Alias trong `tsconfig.json`, VSCode sẽ hết báo đỏ nhưng Metro Bundler (gói code chạy trên đĩa cứng) vẫn crash với lỗi `Unable to resolve module '@/components/Button'`.
+
+**Mental model:**
+- **TypeScript Compiler (`tsc` / VSCode Editor)**: Đọc `tsconfig.json` → Kiểm tra kiểu & gợi ý Intellisense ở thời điểm Dev.
+- **Metro Bundler (Expo Metro)**: Đọc Babel/Metro resolution config → Đóng gói code gửi cho JS Engine trên điện thoại ở thời điểm Runtime.
+- Cả 2 tầng phải đồng bộ cấu hình alias.
+
+**Đối chiếu cũ → mới:**
+| Tiêu chí | React Native CLI cũ | Expo SDK 57 (Hiện tại) |
+|---|---|---|
+| **Cấu hình Alias** | Khai báo 2 nơi thủ công (`tsconfig.json` + `babel.config.js` via `babel-plugin-module-resolver`) | Expo Router / Metro của SDK 57 **tự động đồng bộ `paths` từ `tsconfig.json`** cho Metro. |
+| **Deprecation TS 6.0+** | Yêu cầu `baseUrl: "."` kèm `paths` | TS 5.4+ / TS 6.0+ **bỏ `baseUrl`**, `paths` dùng tương đối trực tiếp: `"@/*": ["./src/*"]`. |
+
+**Bẫy:**
+1. Khai báo `paths` trong `tsconfig.json` rồi không test thử với Metro Bundler thật.
+2. Dùng `baseUrl: "."` trong TypeScript 6.0+ dẫn đến lỗi deprecation warning `TS5101`.
+
+**Quyết định & Thực thi:**
+1. Cập nhật [`tsconfig.json`](file:///Users/sion-dev/Documents/my_project/SportPulse/tsconfig.json) bổ sung cấu hình `"paths": { "@/*": ["./src/*"] }` chuẩn TypeScript 6.0 (không dùng `baseUrl`).
+2. Chạy thành công `npx tsc --noEmit` và `npx expo config --type prebuild` xác nhận 2 tầng TSCompiler và Metro Bundler đều đồng bộ sạch sẽ.
+
+**Câu hỏi phỏng vấn liên quan:**
+
+> **Q: Bạn cấu hình Path Alias `@/` trong `tsconfig.json` thấy VSCode Intellisense gợi ý rất mượt và `npx tsc --noEmit` không báo lỗi, nhưng khi chạy app trên Simulator lại crash lỗi `Unable to resolve module`. Nguyên nhân do đâu và cách khắc phục là gì?**
+> A: Nguyên nhân là do **Module Resolution 2 tầng** trong React Native. `tsconfig.json` chỉ phục vụ duy nhất cho **TypeScript Compiler / VSCode Editor** để kiểm tra kiểu tĩnh và gợi ý code, không có nhiệm vụ đóng gói code JS. Công cụ thực sự đi tìm file trên đĩa cứng để ship lên điện thoại là **Metro Bundler**. Nếu Metro Bundler chưa được cấu hình để hiểu `@/` (ví dụ thông qua `babel-plugin-module-resolver` ở RN CLI hoặc thông qua Expo Router automatic tsconfig resolution ở Expo SDK 57), Metro sẽ không tìm thấy module và báo lỗi. Khắc phục: Đảm bảo tầng Bundler (Metro/Babel) đã được cấu hình đồng bộ với `paths` trong `tsconfig.json`.
+
+---
+
+## Buổi 9 — TASK-9: ESLint vs Prettier & QA Gate Scripts
+**Ngày:** 2026-09-08
+
+**Vấn đề:** 
+Trộn lẫn Linter và Formatter khiến CI pipeline và Git hook bị rối loạn: lập trình viên bị bối rối không biết CI fail là do lỗi formatting thẩm mỹ (như dấu ngoặc, thụt lề) hay do lỗi bug logic nghiêm trọng (như chưa cleanup `useEffect`, biến chưa dùng).
+
+**Mental model:**
+- **ESLint (Linter)**: "Bác sĩ chẩn đoán bệnh". Soi cấu hình AST để phát hiện bug logic, missing dependency array, unused variables, code smells.
+- **Prettier (Formatter)**: "Thợ trang điểm". Quan tâm đến tính nhất quán thẩm mỹ (thụt lề, single quote, trailing comma). Không quan tâm code có bug hay không.
+
+**Đối chiếu cũ → mới:**
+| Tiêu chí | Cấu hình cũ (Trộn lẫn) | Cấu hình hiện đại (Tách bạch) |
+|---|---|---|
+| **Vận hành** | Nhúng Prettier vào ESLint (`eslint-plugin-prettier`) | Tách riêng: ESLint soi bug (`lint`), Prettier format thẩm mỹ (`format`) |
+| **QA Gate** | CI báo đỏ ngợp màn hình vì lỗi thiếu dấu phẩy | 分 (Phân loại rõ): `npm run typecheck`, `npm run lint`, `npm run format:check` |
+
+**Bẫy:**
+1. Tưởng dùng Prettier là code đã sạch bug (Sai — Prettier không soi được bug logic).
+2. Ép ESLint đi sửa thụt lề thay vì để Prettier tự động sửa hàng trăm file trong 1 giây.
+
+**Quyết định & Thực thi:**
+1. Cài đặt các gói `eslint-config-expo`, `prettier`, `eslint-config-prettier`.
+2. Tạo file [`.prettierrc`](file:///Users/sion-dev/Documents/my_project/SportPulse/.prettierrc) và [`.eslintrc.js`](file:///Users/sion-dev/Documents/my_project/SportPulse/.eslintrc.js).
+3. Tạo [`.prettierignore`](file:///Users/sion-dev/Documents/my_project/SportPulse/.prettierignore) loại trừ các thư mục artifacts/ và node_modules/.
+4. Cập nhật [`package.json`](file:///Users/sion-dev/Documents/my_project/SportPulse/package.json) bổ sung bộ QA Scripts:
+   - `"typecheck": "tsc --noEmit"`
+   - `"lint": "expo lint"`
+   - `"format": "prettier --write ."`
+   - `"format:check": "prettier --check ."`
+5. Chạy thành công `npm run typecheck && npm run format:check` xác nhận dự án đạt chuẩn QA Gate.
+
+**Câu hỏi phỏng vấn liên quan:**
+
+> **Q: Trong quy trình CI/CD cho dự án React Native, tại sao người ta khuyến nghị tách riêng bước `lint` (ESLint) và bước `format:check` (Prettier) thay vì tích hợp Prettier chạy trực tiếp bên trong ESLint plugin?**
+> A: Tách riêng giúp phân loại chính xác **bản chất của lỗi** và tối ưu tốc độ CI. ESLint chuyên đóng vai trò "chẩn đoán lỗi logic" (như missing deps trong `useEffect`, unhandled promise, unused vars) — nếu bước `lint` fail, đó là **lỗi chất lượng code nghiêm trọng** bắt buộc dev phải sửa logic. Còn Prettier chỉ chuyên về "thẩm mỹ trình bày" — nếu bước `format:check` fail, dev chỉ cần chạy `npm run format` để công cụ tự tự động sửa trong 1 giây mà không phải sửa tay từng dấu ngoặc. Tách riêng cũng giúp ESLint chạy nhanh hơn gấp nhiều lần vì không phải gánh thêm phần tính toán layout/formatting.
+
+
+

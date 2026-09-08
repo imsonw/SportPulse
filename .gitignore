@@ -36,6 +36,7 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
-# generated native folders
+# generated native folders (CNG artifacts - strict rule: never commit generated native folders)
 /ios
 /android
+

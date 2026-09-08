@@ -1,0 +1,13 @@
+# Dependencies & artifacts
+node_modules/
+.expo/
+dist/
+web-build/
+ios/
+android/
+package-lock.json
+
+# Documentation and agent logs
+.agents/
+.claude/
+docs/
