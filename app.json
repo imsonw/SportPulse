@@ -31,7 +31,8 @@
           "microphonePermission": "SportPulse cần truy cập micro để bạn tham gia phòng Trivia và nhận định bằng giọng nói."
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      "expo-router"
     ]
   }
 }

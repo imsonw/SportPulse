@@ -93,7 +93,25 @@ concepts:
   - '.prettierrc (cấu hình singleQuote, trailingComma, printWidth)'
   - '.prettierignore (loại trừ artifacts/ và node_modules/)'
   - 'package.json (bổ sung scripts typecheck, lint, format, format:check)'
-
-
-
+- id: C-010
+  concept: File-based routing — cấu trúc thư mục chính là bảng route
+  task: TASK-10
+  date: '2026-09-08'
+  gate: passed
+  weak_points:
+  - 'Câu 1: dùng router.navigate thay vì router.push — đã làm rõ sự khác biệt: push luôn thêm màn mới vào Stack, navigate giật về màn đã có nếu tồn tại trong Stack.'
+  - 'Thói quen viết "match/456" thiếu dấu / ở đầu — trong Expo Router URL phải tính từ gốc, bắt đầu bằng / để tránh resolve sai khi nested sâu.'
+  files_written:
+  - 'index.ts (đổi entry point từ App.tsx sang expo-router/entry)'
+  - 'app/_layout.tsx (Root Stack Navigator tối thiểu)'
+- id: C-011
+  concept: "Layout lồng nhau — _layout.tsx là COMPONENT, không phải file cấu hình"
+  task: TASK-11
+  date: '2026-09-08'
+  gate: passed
+  weak_points:
+  - 'Đã trả lời chuẩn 3/3 câu gate quiz: giải thích chính xác lỗi silent failure 0x0 khi thiếu flex: 1 ở GestureHandlerRootView, rủi ro unmount/mount khi đặt sai chỗ ở từng màn con, và lý do SafeAreaProvider phải bọc ngoài Stack để useSafeAreaInsets lấy tọa độ chính xác.'
+  files_written:
+  - 'app/_layout.tsx (bọc GestureHandlerRootView + SafeAreaProvider quanh Stack)'
+  - 'eslint.config.js (nâng cấp Flat Config chuẩn ESLint 9 cho Expo SDK 57)'
 

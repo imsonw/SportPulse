@@ -9,10 +9,10 @@ tasks_completed:
   - TASK-7
   - TASK-8
   - TASK-9
-tasks_in_progress: []
-remaining_tasks:
   - TASK-10
   - TASK-11
+tasks_in_progress: []
+remaining_tasks:
   - TASK-12
   - TASK-13
   - TASK-14
