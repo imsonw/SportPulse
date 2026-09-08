@@ -416,4 +416,47 @@ biến mất hoặc gesture không hoạt động — rất khó debug nếu kh�
 > có diện tích nào để bắt gesture. Đây là lỗi "âm thầm" kinh điển của thư viện này, luôn kiểm tra
 > đầu tiên trước khi đào sâu vào logic gesture cụ thể.
 
+---
+
+## Buổi 12 — TASK-12: Route group `(tabs)` — thư mục có mà URL không có
+**Ngày:** 2026-09-08
+
+**Vấn đề:** 3 tab cần dùng chung một Tab Navigator (layout), nhưng nếu tạo thư mục thường
+`app/tabs/`, URL sẽ có thêm một cấp thừa (`/tabs/index`) — không phải điều mong muốn.
+
+**Mental model:** Thư mục trong **ngoặc tròn** `(tabs)` là **Route Group** — tồn tại vật lý để
+chia sẻ `_layout.tsx` chung, nhưng **biến mất khỏi URL**. Ba loại cú pháp đặc biệt của Expo Router,
+dễ lẫn nhất trong buổi này:
+
+| Cú pháp | Tên gọi | Ảnh hưởng URL? |
+|---|---|---|
+| `(tabs)` | Route Group | **Không** — biến mất khỏi URL |
+| `[id]` | Dynamic segment | **Có** — giá trị thật thay vào |
+| `+not-found` | File đặc biệt (reserved) | Không phải segment thường, Expo Router tự nhận diện |
+
+**Đối chiếu cũ → mới:** Tab Navigator không biến mất so với React Navigation cũ — nó chỉ **chuyển
+chỗ ở**: từ một file khai báo `<Tab.Navigator><Tab.Screen .../></Tab.Navigator>` tập trung, sang
+thành component `<Tabs />` **render** trong `app/(tabs)/_layout.tsx` (đúng bài Buổi 11: `_layout.tsx`
+là COMPONENT). Mỗi file bên trong nhóm tự động thành một tab, không cần khai báo `<Tab.Screen>` thủ công.
+
+**Bẫy:** hai route group khác nhau (`(tabs)` và `(auth)` chẳng hạn) có thể vô tình cùng resolve về
+một URL (`/`) nếu cả hai đều có `index.tsx` — route group giấu tên thư mục nhưng không giấu được
+xung đột URL.
+
+**Quyết định:** `app/(tabs)/_layout.tsx` chỉ chứa `<Tabs />` trần, chưa có `<Tabs.Screen>` — việc
+tuỳ chỉnh icon/label từng tab là khái niệm của TASK-13, cố ý chưa viết trước.
+
+**Câu hỏi phỏng vấn liên quan** *(câu hỏi khả dĩ — đúng chủ đề "tổ chức route" hay gặp khi CV có
+Expo Router):*
+
+> **Q: Trong Expo Router, `(tabs)` và `[id]` đều dùng dấu ngoặc trong tên thư mục/file. Khác nhau
+> ở đâu, và nếu nhầm lẫn sẽ gây hậu quả gì?**
+> A: `[id]` (ngoặc vuông) là **dynamic segment** — giá trị thật sẽ thay vào URL (`/match/123`).
+> `(tabs)` (ngoặc tròn) là **route group** — chỉ để tổ chức file dùng chung layout, hoàn toàn
+> **biến mất khỏi URL**. Nhầm hai cái sẽ dẫn tới hai loại lỗi khác nhau: tưởng route group tạo
+> thêm cấp URL (sai, nó không tạo), hoặc tưởng dynamic segment không ảnh hưởng URL (sai, giá trị
+> luôn xuất hiện). Rủi ro thực tế: hai route group khác nhau nhưng cùng có file trùng tên (VD
+> `index.tsx`) sẽ resolve về cùng một URL và gây lỗi route mơ hồ (ambiguous route) — vì "biến mất
+> khỏi URL" không đồng nghĩa "không thể xung đột".
+
 

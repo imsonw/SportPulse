@@ -41,35 +41,42 @@ concepts:
   date: '2026-09-08'
   gate: passed
   weak_points:
-  - 'Phần phân biệt app riêng vs app SportPulse: người học ban đầu chưa rõ Dev Client là app riêng hay chính app SportPulse. Đã giải thích rõ: Dev Client chính là bản build SportPulse của chính dự án (gắn thêm menu dev), khác hoàn toàn ứng dụng Expo Go chung trên App Store.'
+  - 'Phần phân biệt app riêng vs app SportPulse: người học ban đầu chưa rõ Dev Client là app riêng hay
+    chính app SportPulse. Đã giải thích rõ: Dev Client chính là bản build SportPulse của chính dự án (gắn
+    thêm menu dev), khác hoàn toàn ứng dụng Expo Go chung trên App Store.'
   files_written:
-  - 'package.json (thêm dependency expo-dev-client)'
+  - package.json (thêm dependency expo-dev-client)
 - id: C-005
   concept: Config Plugin — khai báo quyền và cấu hình native bằng JavaScript
   task: TASK-5
   date: '2026-09-08'
   gate: passed
   weak_points:
-  - 'Hỏi thêm về khả năng Localize xin quyền: Đã giải thích cơ chế InfoPlist.strings (iOS) và strings.xml (Android) cũng như vai trò của message trong app.json đóng vai trò Fallback Language.'
+  - 'Hỏi thêm về khả năng Localize xin quyền: Đã giải thích cơ chế InfoPlist.strings (iOS) và strings.xml
+    (Android) cũng như vai trò của message trong app.json đóng vai trò Fallback Language.'
   files_written:
-  - 'app.json (khai báo mảng plugins cho expo-audio, expo-haptics, expo-notifications)'
+  - app.json (khai báo mảng plugins cho expo-audio, expo-haptics, expo-notifications)
 - id: C-006
   concept: Vòng đời prebuild — ios/ sinh ra, bị xoá, và vì sao phải nằm trong .gitignore
   task: TASK-6
   date: '2026-09-08'
   gate: passed
   weak_points:
-  - 'Phân biệt gói autolink vs gói dùng config plugin: lúc đầu đưa cả expo-haptics vào plugins[] trong app.json gây lỗi CLI loader. Đã giải thích rõ: chỉ các gói cần can thiệp InfoPlist/Manifest mới cần plugin, còn gói thuần native autolink như expo-haptics thì tự động nhận.'
+  - 'Phân biệt gói autolink vs gói dùng config plugin: lúc đầu đưa cả expo-haptics vào plugins[] trong
+    app.json gây lỗi CLI loader. Đã giải thích rõ: chỉ các gói cần can thiệp InfoPlist/Manifest mới cần
+    plugin, còn gói thuần native autolink như expo-haptics thì tự động nhận.'
   files_written:
-  - '.gitignore (cập nhật nhận diện rõ CNG artifacts /ios, /android)'
-  - 'app.json (gỡ expo-haptics khỏi plugins array)'
+  - .gitignore (cập nhật nhận diện rõ CNG artifacts /ios, /android)
+  - app.json (gỡ expo-haptics khỏi plugins array)
 - id: C-007
   concept: tsconfig strict thực sự bật những gì, và vì sao nó quan trọng hơn khi bỏ Redux
   task: TASK-7
   date: '2026-09-08'
   gate: passed
   weak_points:
-  - 'Nhắc nhở phân biệt 2 cách xử lý undefined: Safe Access (optional chaining ?.) thích hợp cho inline render UI, nhưng với các luồng màn hình chính nên ưu tiên Early Return / Type Guard để không render khung rỗng khi chưa có dữ liệu.'
+  - 'Nhắc nhở phân biệt 2 cách xử lý undefined: Safe Access (optional chaining ?.) thích hợp cho inline
+    render UI, nhưng với các luồng màn hình chính nên ưu tiên Early Return / Type Guard để không render
+    khung rỗng khi chưa có dữ liệu.'
   files_written:
   - 'tsconfig.json (xác minh cấu hình strict: true và chạy sạch npx tsc --noEmit)'
 - id: C-008
@@ -78,40 +85,59 @@ concepts:
   date: '2026-09-08'
   gate: passed
   weak_points:
-  - 'Phát hiện deprecation trong TS 6.0: baseUrl bị deprecate khi dùng paths tương đối trong TS 5.4+/6.0+. Cấu hình sạch chỉ cần paths: { "@/*": ["./src/*"] } trong tsconfig.json.'
+  - 'Phát hiện deprecation trong TS 6.0: baseUrl bị deprecate khi dùng paths tương đối trong TS 5.4+/6.0+.
+    Cấu hình sạch chỉ cần paths: { "@/*": ["./src/*"] } trong tsconfig.json.'
   files_written:
-  - 'tsconfig.json (cấu hình paths alias @/* -> ./src/* chuẩn TypeScript 6.0)'
+  - tsconfig.json (cấu hình paths alias @/* -> ./src/* chuẩn TypeScript 6.0)
 - id: C-009
   concept: ESLint và Prettier là hai công việc khác nhau, không phải một
   task: TASK-9
   date: '2026-09-08'
   gate: passed
   weak_points:
-  - 'Phân biệt rõ 2 loại QA script: npm run lint (bắt bug/code smell qua ESLint) và npm run format:check (soi quy chuẩn format qua Prettier). Không lạm dụng ESLint để fix formatting.'
+  - 'Phân biệt rõ 2 loại QA script: npm run lint (bắt bug/code smell qua ESLint) và npm run format:check
+    (soi quy chuẩn format qua Prettier). Không lạm dụng ESLint để fix formatting.'
   files_written:
-  - '.eslintrc.js (cấu hình expo + prettier rules)'
-  - '.prettierrc (cấu hình singleQuote, trailingComma, printWidth)'
-  - '.prettierignore (loại trừ artifacts/ và node_modules/)'
-  - 'package.json (bổ sung scripts typecheck, lint, format, format:check)'
+  - .eslintrc.js (cấu hình expo + prettier rules)
+  - .prettierrc (cấu hình singleQuote, trailingComma, printWidth)
+  - .prettierignore (loại trừ artifacts/ và node_modules/)
+  - package.json (bổ sung scripts typecheck, lint, format, format:check)
 - id: C-010
   concept: File-based routing — cấu trúc thư mục chính là bảng route
   task: TASK-10
   date: '2026-09-08'
   gate: passed
   weak_points:
-  - 'Câu 1: dùng router.navigate thay vì router.push — đã làm rõ sự khác biệt: push luôn thêm màn mới vào Stack, navigate giật về màn đã có nếu tồn tại trong Stack.'
-  - 'Thói quen viết "match/456" thiếu dấu / ở đầu — trong Expo Router URL phải tính từ gốc, bắt đầu bằng / để tránh resolve sai khi nested sâu.'
+  - 'Câu 1: dùng router.navigate thay vì router.push — đã làm rõ sự khác biệt: push luôn thêm màn mới
+    vào Stack, navigate giật về màn đã có nếu tồn tại trong Stack.'
+  - Thói quen viết "match/456" thiếu dấu / ở đầu — trong Expo Router URL phải tính từ gốc, bắt đầu bằng
+    / để tránh resolve sai khi nested sâu.
   files_written:
-  - 'index.ts (đổi entry point từ App.tsx sang expo-router/entry)'
-  - 'app/_layout.tsx (Root Stack Navigator tối thiểu)'
+  - index.ts (đổi entry point từ App.tsx sang expo-router/entry)
+  - app/_layout.tsx (Root Stack Navigator tối thiểu)
 - id: C-011
-  concept: "Layout lồng nhau — _layout.tsx là COMPONENT, không phải file cấu hình"
+  concept: Layout lồng nhau — _layout.tsx là COMPONENT, không phải file cấu hình
   task: TASK-11
   date: '2026-09-08'
   gate: passed
   weak_points:
-  - 'Đã trả lời chuẩn 3/3 câu gate quiz: giải thích chính xác lỗi silent failure 0x0 khi thiếu flex: 1 ở GestureHandlerRootView, rủi ro unmount/mount khi đặt sai chỗ ở từng màn con, và lý do SafeAreaProvider phải bọc ngoài Stack để useSafeAreaInsets lấy tọa độ chính xác.'
+  - 'Đã trả lời chuẩn 3/3 câu gate quiz: giải thích chính xác lỗi silent failure 0x0 khi thiếu flex: 1
+    ở GestureHandlerRootView, rủi ro unmount/mount khi đặt sai chỗ ở từng màn con, và lý do SafeAreaProvider
+    phải bọc ngoài Stack để useSafeAreaInsets lấy tọa độ chính xác.'
   files_written:
-  - 'app/_layout.tsx (bọc GestureHandlerRootView + SafeAreaProvider quanh Stack)'
-  - 'eslint.config.js (nâng cấp Flat Config chuẩn ESLint 9 cho Expo SDK 57)'
-
+  - app/_layout.tsx (bọc GestureHandlerRootView + SafeAreaProvider quanh Stack)
+  - eslint.config.js (nâng cấp Flat Config chuẩn ESLint 9 cho Expo SDK 57)
+- id: C-012
+  concept: Route group (tabs) — thư mục có mà URL không có
+  task: TASK-12
+  date: '2026-09-08'
+  gate: retried
+  weak_points:
+  - 'Câu 2: đảo ngược (tabs) và [id] ở lần đầu — nói (tabs) ảnh hưởng URL, [id] không, dù Câu 1 cùng lượt
+    trả lời đúng. Có thể do liệt kê nhanh, không phải hiểu sai gốc — nhưng đáng nhắc nếu buổi sau lại
+    lẫn lộn ngoặc tròn (group) với ngoặc vuông (dynamic segment).'
+  - 'Câu 4: nói ''không cần Tab Navigator'' — sai khung. Tab Navigator không biến mất, chỉ chuyển thành
+    component <Tabs> render trong _layout.tsx (nối đúng bài Buổi 11: _layout.tsx là COMPONENT). Đã tự
+    sửa đúng ở lần hỏi lại.'
+  files_written:
+  - app/(tabs)/_layout.tsx (Tabs layout tối thiểu, chưa có Tabs.Screen — để dành TASK-13)
