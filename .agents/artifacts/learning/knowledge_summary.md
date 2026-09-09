@@ -459,4 +459,260 @@ Expo Router):*
 > `index.tsx`) sẽ resolve về cùng một URL và gây lỗi route mơ hồ (ambiguous route) — vì "biến mất
 > khỏi URL" không đồng nghĩa "không thể xung đột".
 
+## Buổi 13 — TASK-13: `Tabs.Screen` — prop `name` trỏ tới TÊN FILE, không phải đường dẫn
+**Ngày:** 2026-09-09
+
+**Vấn đề:** `<Tabs />` để trần không tự có icon/label/thứ tự bạn muốn. Muốn tuỳ biến, phải khai báo
+`<Tabs.Screen>` — và lúc đó phải nói đúng "config này áp cho route nào".
+
+**Mental model:** `Tabs.Screen` **không tạo route** — file mới tạo route (Buổi 10). Nó chỉ là một
+"nhãn cấu hình" gắn vào route đã tồn tại, khớp bằng cách so `name` với tên file (bỏ đuôi `.tsx`).
+Dán nhãn sai tên hộp → nhãn không gắn vào đâu cả, hộp gốc vẫn còn nhưng không có nhãn.
+
+**Đối chiếu cũ → mới:** React Navigation cũ: `<Tab.Screen name="Home" component={HomeScreen} />` —
+`name` là ID tự đặt, gắn với biến JS import trực tiếp. Expo Router: không còn `import`/`component`,
+route đã do FILE quyết định, nên `name` không còn tự do — nó **bắt buộc** khớp tên file để nói tab
+này áp cho route nào. Giữ thói quen cũ (`name="Home"` cho file `index.tsx`) là bẫy.
+
+**Bẫy:**
+- `name` không khớp file → cấu hình (icon/label) bạn định set cho file đó không áp dụng được;
+  còn file gốc (không có `Tabs.Screen` khớp) vẫn tự mọc tab mặc định (label = tên file, không icon).
+- **Miss thật của buổi này:** tưởng phải khai báo `Tabs.Screen` thì tab mới "tồn tại". Sai —
+  `<Tabs>` tự sinh tab cho MỌI file trong `(tabs)/` kể cả khi không khai báo gì. `Tabs.Screen` chỉ
+  cần để TUỲ BIẾN (icon/label/order) hoặc ẨN hẳn (`options={{ href: null }}`), không phải điều kiện
+  để tab xuất hiện.
+- `name` không có đuôi `.tsx`, không có dấu `/`.
+
+**Quyết định & vì sao:**
+- `name="index"/"trivia"/"leaderboard"` trong `app/(tabs)/_layout.tsx` — **bắt buộc**, khớp tên file.
+- `title` (label tiếng Việt) đặt trong `options`, tách biệt hoàn toàn khỏi `name` — tránh đúng bẫy
+  nhầm hai khái niệm với nhau.
+- Icon: `@expo/vector-icons` (Ionicons) — **lựa chọn của người học**, cân nhắc với `expo-symbols`
+  (SF Symbols, chỉ iOS) và emoji tạm thời; chọn vector-icons vì quen thuộc, cross-platform, bộ icon
+  rộng. Cài qua `npm install "@expo/vector-icons@^15.0.2" --legacy-peer-deps` vì cây dependency của
+  SDK 57 có xung đột peer `react@19.2.3` vs `react-dom@19.2.8` từ `@expo/ui` (web tooling nội bộ của
+  `expo-router`, không liên quan gói mới cài) — `--legacy-peer-deps` chỉ bỏ qua đúng peer conflict
+  có sẵn đó, không ảnh hưởng resolve version của `@expo/vector-icons`.
+
+**Câu hỏi phỏng vấn liên quan** *(câu hỏi khả dĩ — chủ đề "file-based tab config" hay gặp khi CV có
+Expo Router):*
+
+> **Q: Trong Expo Router, nếu bạn không khai báo `<Tabs.Screen>` cho một file trong `(tabs)/`, tab
+> đó có xuất hiện không? `Tabs.Screen` dùng để làm gì?**
+> A: Có, nó vẫn xuất hiện — Expo Router tự sinh tab cho mọi file tìm thấy trong thư mục `(tabs)/`,
+> dùng tên file làm label mặc định, không cần khai báo gì thêm. `Tabs.Screen` không phải điều kiện
+> để tab tồn tại, mà là công cụ TUỲ BIẾN: đặt icon, đổi label hiển thị (`title`), đổi thứ tự, hoặc
+> ẩn hẳn tab đó khỏi thanh tab bằng `options={{ href: null }}` trong khi route vẫn truy cập được
+> qua link.
+
+## Buổi 14 — TASK-14: Dynamic route `[id].tsx` và `useLocalSearchParams`
+**Ngày:** 2026-09-09
+
+**Vấn đề:** Cần truyền `id` từ danh sách trận đấu sang màn chi tiết, nhưng Expo Router không có
+`navigate(name, { params object bất kỳ })` như React Navigation cũ — điều hướng đi qua URL string.
+
+**Mental model:** `[id].tsx` là segment khớp bất kỳ giá trị nào trong URL (như `/match/:id`).
+`useLocalSearchParams()` đọc lại giá trị đó từ chuỗi URL đã parse, nên kiểu **luôn là `string`**
+(hoặc `string[]` nếu segment lặp) — kể cả bạn "truyền" một số khi push.
+
+**Đối chiếu cũ → mới:**
+| | Cũ (React Navigation) | Mới (Expo Router) |
+|---|---|---|
+| Truyền dữ liệu | `navigate('Detail', { id: 123, obj: {...} })` — object JS bất kỳ, qua bộ nhớ | `router.push('/match/123')` — build một URL **string** |
+| Nhận lại | Đúng kiểu gốc (number, object...) | Luôn `string`/`string[]`, phải tự parse/validate |
+| Truyền object phức tạp | Nhét thẳng vào params | Không nhét được — chỉ truyền `id`, màn đích tự fetch lại dữ liệu theo `id` |
+
+**Bẫy:**
+- So sánh `id === 123` (number) trong khi `id` luôn là string `'123'` → luôn `false`, không throw
+  lỗi gì, bug âm thầm.
+- Nhầm `useLocalSearchParams` với `useGlobalSearchParams` — khác nhau ở phạm vi cập nhật khi nhiều
+  màn lồng nhau cùng đọc chung một param.
+- Đổi tên file `[id].tsx` → `[matchId].tsx` thì key trả về từ hook cũng đổi theo (`matchId`), không
+  tự động giữ tên cũ — phải sửa cả 2 chỗ (tên file và destructure).
+
+**Quyết định & vì sao:**
+- `useLocalSearchParams<{ id: string }>()` thay vì `useGlobalSearchParams` — màn detail đơn không
+  cần đồng bộ real-time với màn khác, tránh re-render thừa.
+- Card mẫu ở `(tabs)/index.tsx` dùng `router.push('/match/123')` (string literal) — minh hoạ trực
+  tiếp: dù gõ `123` trong code, nó bị nuốt vào URL string ngay lập tức, không có cách "push một số".
+- Chưa parse `id` sang number hay validate — để dành khi có network layer thật (Sprint 2); sprint
+  này chỉ cần verify điều hướng bằng hiển thị string trực tiếp.
+
+**Câu hỏi phỏng vấn liên quan** *(câu hỏi khả dĩ — chủ đề "truyền dữ liệu qua navigation" hay gặp
+khi so sánh Expo Router với React Navigation cổ điển):*
+
+> **Q: Trong Expo Router, param đọc từ `useLocalSearchParams` luôn có kiểu gì, và vì sao không thể
+> truyền thẳng một object phức tạp qua điều hướng như React Navigation cũ?**
+> A: Luôn là `string` (hoặc `string[]` nếu segment lặp), vì Expo Router điều hướng bằng cách build
+> một URL thật (`router.push('/match/123')`), và URL về bản chất chỉ có thể chứa text. Muốn truyền
+> dữ liệu phức tạp (object, số đã tính toán), cách đúng là chỉ truyền `id` qua URL rồi để màn đích
+> tự fetch lại dữ liệu đầy đủ theo `id` đó — không serialize nguyên object vào params như cách cũ.
+
+**Phát hiện bổ sung (kiểm chứng thực nghiệm 2 vòng, không phải từ docs):**
+- Vòng 1: push `/match/123` rồi `navigate('/match/456')` (href khác) → MOUNT lại, back 2 lần. Kết
+  quả mong đợi, không bất ngờ.
+- Vòng 2 (test thật sự): push `123` → push `456` → từ `456` gọi `navigate('/match/123')` — tức
+  href **khớp CHÍNH XÁC** với một instance đã có sẵn (không phải đứng đầu stack). Kết quả: **vẫn
+  MOUNT lại (instance thứ 3), back phải 3 lần** — nghĩa là `navigate` xử sự **y hệt `push` trong mọi
+  trường hợp đã test với route dynamic**, kể cả khi href trùng khớp tuyệt đối. Giả thuyết "match theo
+  href chính xác" ở vòng 1 đã bị bác bỏ.
+- Kết luận thực dụng: hành vi "unwind to existing route" mà docs mô tả nhiều khả năng chỉ áp dụng
+  cho route **singular** (tối đa 1 instance, kiểu tab/drawer) — route có dynamic segment trong Stack
+  được thiết kế để cho phép nhiều instance song song, nên `navigate` không có "existing route" nào để
+  nhảy về. Đây là suy luận cá nhân dựa trên thực nghiệm, KHÔNG có docs xác nhận trực tiếp — nếu cần
+  chắc chắn 100%, phải đọc source code `expo-router`/`@react-navigation` thay vì đoán từ hành vi quan
+  sát được.
+- Với route dynamic (`[id].tsx`), `push` và `navigate` cho kết quả **giống nhau** trong dự án này —
+  không có lý do thực dụng để phân biệt hai hàm này ở các task còn lại của module Router.
+
+## Buổi 15 — TASK-15: Route ngoài tab & cách ẩn tab bar cho màn fullscreen
+**Ngày:** 2026-09-09
+
+**Vấn đề:** Màn recap cần chiếm toàn màn hình — không tab bar, không header. Phản xạ kiểu component
+là "ẩn TabBar bằng style/điều kiện khi ở màn này".
+
+**Mental model:** Cấu trúc thư mục = cấu trúc navigator lồng nhau. `(tabs)/` là Tab Navigator con
+nằm trong Stack cha (`app/_layout.tsx`). Đặt `recap/[matchId].tsx` NGOÀI `(tabs)/` nghĩa là nó là
+screen của Stack **cha**, chưa bao giờ đi qua `<Tabs>` — tab bar vốn dĩ không tồn tại ở tầng đó,
+không cần "ẩn" gì.
+
+**Đối chiếu cũ → mới:** React Navigation cũ: ẩn tab bar tạm thời bằng `tabBarStyle: { display: 'none' }`
+set động theo route, hoặc check route name trong custom tab bar — sửa HÀNH VI component dựa trên
+điều kiện. Expo Router: câu hỏi không phải "ẩn tab bar sao" mà "màn này có thuộc navigator có tab
+bar không" — trả lời bằng VỊ TRÍ FILE, không phải logic điều kiện.
+
+**Bẫy:**
+- Đặt file trong `(tabs)/recap/[matchId].tsx` rồi ẩn tab bar bằng style/điều kiện: chạy được nhưng
+  tab bar có thể giật/nháy lúc chuyển màn, và phải tự maintain logic "route nào thì ẩn".
+- **Miss thật của buổi này:** nhầm ai chịu trách nhiệm ẩn HEADER cho route ngoài tab. Vì recap nằm
+  ngoài `(tabs)`, `Tabs.Screen` ở `(tabs)/_layout.tsx` không liên quan gì tới nó — header do
+  **Stack cha trực tiếp chứa route đó** quyết định (ở đây là root `app/_layout.tsx`), không phải
+  Tab Navigator.
+- Ẩn header và ẩn tab bar là HAI TẦNG khác nhau, dễ tưởng là một cơ chế vì cùng cho cảm giác "sạch":
+
+| Cái gì | Ai chịu trách nhiệm |
+|---|---|
+| Tab bar hiện/ẩn | Route có nằm trong `(tabs)/` hay không — cấu trúc thư mục |
+| Header hiện/ẩn | Navigator TRỰC TIẾP chứa route (`options.headerShown`) — với route ngoài tab, đó là Stack cha |
+
+**Quyết định & vì sao:**
+- `app/recap/[matchId].tsx` — param key `matchId` khớp tên file, dùng lại đúng pattern
+  `useLocalSearchParams` của Buổi 14.
+- `app/_layout.tsx` thêm `<Stack.Screen name="recap/[matchId]" options={{ headerShown: false }} />`
+  — `name` phải là PATH ĐẦY ĐỦ tính từ `app/` (khác với trong `(tabs)`, vì không có route group nào
+  rút gọn path).
+- **Chưa** thêm `presentation: 'fullScreenModal'` — cố ý để dành TASK-16 (khái niệm presentation
+  modes). Route hiện vẫn push mặc định, chỉ khác không header/không tab bar.
+
+**Câu hỏi phỏng vấn liên quan** *(câu hỏi khả dĩ — chủ đề "ẩn tab bar/header theo route" hay gặp khi
+so sánh Expo Router với React Navigation cổ điển):*
+
+> **Q: Làm sao để một màn hình chạy fullscreen (không tab bar, không header) trong ứng dụng dùng
+> Expo Router với cấu trúc `(tabs)`? Vì sao không nên ẩn tab bar bằng style?**
+> A: Đặt file màn hình đó NGOÀI thư mục route group `(tabs)/` — ví dụ `app/recap/[matchId].tsx`
+> thay vì `app/(tabs)/recap/[matchId].tsx`. Vì route nằm ngoài Tab Navigator nên tab bar vốn dĩ
+> không tồn tại ở đó, không cần ẩn bằng style hay điều kiện (cách đó vẫn chạy nhưng dễ gây giật/nháy
+> animation và phải tự maintain logic theo route). Header thì tách biệt: do Stack cha trực tiếp
+> chứa route đó quyết định qua `options.headerShown`, không phải Tab Navigator.
+
+## Buổi 16 — TASK-16: Presentation modes — `modal` vs `push` vs `fullScreenModal`
+**Ngày:** 2026-09-09
+
+**Vấn đề:** Màn "phòng chờ quiz" cần cảm giác tạm thời, ngắt quãng — mở lên làm gì đó rồi đóng lại,
+không phải "đi sâu thêm" như push thường. Chỉ đổi animation mà giữ cơ chế push sẽ mất đúng thứ quan
+trọng nhất: cử chỉ vuốt xuống để đóng.
+
+**Mental model:** `presentation` không chỉnh animation đơn thuần — nó đổi LOẠI ROUTE trong ngăn xếp
+native (iOS: `UIModalPresentationStyle` thật, không phải push lên `UINavigationController`). Modal
+có ngăn xếp riêng, tách biệt khỏi Stack chứa nó — "nổi" lên trên toàn bộ (che cả tab bar dù mở từ
+tab nào), có cử chỉ đóng riêng mà push thường không có.
+
+**Đối chiếu cũ → mới:** React Navigation cũ: tự định nghĩa riêng một `ModalStack` hoặc `mode: 'modal'`
+ở cấp `createStackNavigator`, tự viết logic ẩn tab bar khi vào modal. Expo Router: chỉ cần
+`presentation: 'modal'` trong `options` của MỘT screen — Router tự lo phần thoát khỏi luồng push
+thường, nổi lên trên, có cử chỉ đóng riêng, không cần khai báo navigator nào thêm.
+
+**Bẫy:**
+- Coi `fullScreenModal` và `modal` giống nhau chỉ khác animation — sai: `fullScreenModal` KHÔNG cho
+  vuốt xuống đóng (phải bấm nút tường minh), `modal` mặc định cho vuốt xuống. Đây là lý do recap
+  (TASK-15) dùng push thường + ẩn header (không cần vuốt đóng) còn quiz-room dùng `modal`.
+- **Miss thật của buổi này:** tưởng có cơ chế tự động chặn vuốt-xuống-để-đóng và tự hỏi confirm.
+  Không có gì tự động — muốn chặn phải tự lắng nghe sự kiện điều hướng (kiểu `beforeRemove`) và tự
+  viết logic confirm. Việc này thuộc Sprint 3 (nối yêu cầu "confirm trước khi thoát quiz"), KHÔNG
+  làm ở sprint này.
+- Đóng modal (dismiss) và pop khỏi Stack (back) là hai khái niệm khác nhau dù cả hai đều gọi được
+  qua `router.back()` — modal là một lớp tạm nổi lên, không phải một bước lịch sử tuyến tính.
+
+**Quyết định & vì sao:**
+- `presentation: 'modal'` (không phải `fullScreenModal`) — bắt buộc theo acceptance criteria: cần
+  vuốt xuống đóng được.
+- `title: 'Phòng chờ Quiz'` (có header) — lựa chọn UX, không bắt buộc; có thể `headerShown: false`
+  nếu muốn modal trần hoàn toàn.
+- Chưa viết logic chặn dismiss/confirm — để dành Sprint 3, đúng gate_focus của task.
+
+**Câu hỏi phỏng vấn liên quan** *(câu hỏi khả dĩ — chủ đề "modal presentation" hay gặp khi so sánh
+Expo Router với React Navigation cổ điển):*
+
+> **Q: Trong Expo Router, `presentation: 'modal'` khác `presentation: 'fullScreenModal'` ở điểm
+> nào? Và cả hai khác push thường ở cơ chế gì, không chỉ animation?**
+> A: `modal` cho phép vuốt xuống để đóng mặc định; `fullScreenModal` thì không, phải có nút đóng
+> tường minh. Cả hai đều khác push thường ở chỗ chúng dùng cơ chế trình bày (presentation) native
+> riêng của hệ điều hành (trên iOS là `UIModalPresentationStyle`), không phải đẩy thêm một màn vào
+> `UINavigationController` — do đó chúng "nổi" lên trên toàn bộ UI hiện có (kể cả tab bar), có ngăn
+> xếp điều hướng tách biệt, và không có sự kiện tự động nào chặn việc đóng lại — muốn xác nhận trước
+> khi thoát phải tự lắng nghe sự kiện điều hướng và tự viết logic confirm.
+
+## Buổi 17 — TASK-17: Route đặc biệt `+not-found` và cú pháp catch-all `[...rest]`
+**Ngày:** 2026-09-09
+
+**Vấn đề:** Cần một màn "404" khi URL không khớp gì (deep link sai, route đổi tên quên cập nhật).
+Nhưng cũng có dynamic route (`[id]`) khớp rất rộng — Router chọn route nào khi một URL khớp nhiều
+pattern cùng lúc?
+
+**Mental model:** Router xếp hạng độ CỤ THỂ của route theo thứ tự cố định, không theo thứ tự file
+được tạo hay thứ tự khai báo JSX:
+
+| Thứ tự ưu tiên | Loại route | Khớp gì |
+|---|---|---|
+| 1 (cao nhất) | Route tĩnh | Khớp chính xác (`/leaderboard`) |
+| 2 | `[id]` (dynamic segment) | Đúng 1 segment, PHẢI có giá trị (không match rỗng/thiếu) |
+| 3 | `[...rest]` (catch-all) | N segment (mặc định cũng yêu cầu ≥1) |
+| 4 (thấp nhất, fallback) | `+not-found` | Chỉ khi KHÔNG route nào ở trên khớp |
+
+Giống `switch` có các `case` cụ thể trước, `default` sau cùng — `+not-found` chính là `default`,
+không "thi đấu" độ khớp với route khác.
+
+**Đối chiếu cũ → mới:** React Navigation cũ: tự viết `NotFoundScreen`, thứ tự `<Stack.Screen>` khai
+báo trong JSX quyết định ai thắng (khai báo trước ưu tiên trước, chạy tuần tự như switch-case thật).
+Expo Router: KHÔNG có "khai báo trước sau" — quyết định dựa vào TÊN/CẤU TRÚC FILE (độ cụ thể của
+segment). `+not-found.tsx` luôn là phương án cuối cùng bất kể tạo lúc nào, đặt Stack.Screen ở đâu,
+hay thậm chí không khai báo Stack.Screen cho nó — dấu `+` là ký hiệu đặc biệt Router tự nhận diện.
+
+**Bẫy:**
+- Tưởng `[...rest]` "nuốt" luôn URL mà `[id]` lẽ ra khớp — sai, `[id]` (cụ thể hơn) luôn thắng
+  `[...rest]` (rộng hơn) khi URL chỉ có đúng 1 segment ở vị trí đó.
+- Nghĩ phải "điều hướng tay" tới `+not-found` bằng `router.push('/+not-found')` — sai, đây là
+  fallback tự động của Router, không phải route bạn chủ động push tới.
+- **Miss thật của buổi này:** tưởng URL thiếu segment (`/match`, không có gì sau) vẫn khớp
+  `[id].tsx` — sai. Dynamic segment yêu cầu CHÍNH XÁC 1 segment TỒN TẠI (giá trị gì cũng được, nhưng
+  phải có), không match được với segment rỗng/thiếu. `/match` không khớp `[id]`, không có
+  `match/index.tsx` trong dự án → rơi thẳng vào `+not-found`.
+
+**Quyết định & vì sao:**
+- `app/+not-found.tsx` — không cần khai báo `Stack.Screen` trong `app/_layout.tsx`, đúng bản chất
+  route reserved.
+- `router.replace('/')` (không phải `push`) cho nút "Về trang chủ" — người dùng đang ở URL không
+  hợp lệ, không nên giữ bước đó trong lịch sử back.
+
+**Câu hỏi phỏng vấn liên quan** *(câu hỏi khả dĩ — chủ đề "route matching priority" hay gặp khi so
+sánh Expo Router với các router file-based khác như Next.js):*
+
+> **Q: Trong Expo Router, nếu một URL có thể khớp cả route tĩnh, dynamic segment, catch-all lẫn
+> `+not-found`, route nào được chọn? Thứ tự này dựa vào đâu?**
+> A: Router chọn theo độ CỤ THỂ giảm dần: route tĩnh khớp chính xác trước, rồi tới dynamic segment
+> `[id]` (khớp đúng 1 segment có giá trị), rồi catch-all `[...rest]` (khớp N segment), cuối cùng mới
+> tới `+not-found` — chỉ kích hoạt khi không route nào ở trên khớp. Thứ tự này KHÔNG phụ thuộc vào
+> việc bạn tạo file lúc nào hay khai báo `Stack.Screen` theo thứ tự nào trong JSX — nó dựa hoàn toàn
+> vào cấu trúc/tên file, đúng tinh thần "file quyết định route" xuyên suốt Expo Router.
+
 

@@ -15,6 +15,13 @@ export default function RootLayout() {
             sẽ được bổ sung ở các task tiếp theo (TASK-20 cho Theme) */}
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          {/* Ẩn header cho recap: tab bar tự động không có vì route này nằm ngoài (tabs) —
+              không cần cấu hình gì thêm cho việc đó */}
+          <Stack.Screen name="recap/[matchId]" options={{ headerShown: false }} />
+          {/* presentation: 'modal' (không phải fullScreenModal) — cho vuốt xuống đóng mặc định,
+              đúng yêu cầu acceptance criteria F-002. Chưa chặn vuốt xuống lúc đang làm quiz dở,
+              việc đó thuộc Sprint 3 */}
+          <Stack.Screen name="modal/quiz-room" options={{ presentation: 'modal', title: 'Phòng chờ Quiz' }} />
         </Stack>
       </SafeAreaProvider>
     </GestureHandlerRootView>

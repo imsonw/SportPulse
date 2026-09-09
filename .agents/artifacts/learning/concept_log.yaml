@@ -141,3 +141,70 @@ concepts:
     sửa đúng ở lần hỏi lại.'
   files_written:
   - app/(tabs)/_layout.tsx (Tabs layout tối thiểu, chưa có Tabs.Screen — để dành TASK-13)
+- id: C-013
+  concept: "Tabs.Screen — prop name trỏ tới TÊN FILE, không phải đường dẫn"
+  task: TASK-13
+  date: '2026-09-09'
+  gate: retried
+  weak_points:
+  - 'Câu 2 (core miss): trả lời "trivia.tsx không tự lên tab nếu không khai báo Tabs.Screen" — sai
+    khung, đúng bẫy #3 đã cảnh báo ở Pha 1. Sự thật: <Tabs> tự sinh tab mặc định cho MỌI file trong
+    (tabs)/, Tabs.Screen chỉ dùng để TUỲ BIẾN (icon/label/order/ẩn qua href: null), không phải điều
+    kiện để tab tồn tại. Đã giảng lại và hỏi follow-up (ẩn tab bằng href: null) — trả lời đúng ở lần
+    2. Nhắc lại nếu buổi sau đụng lại "file nào cần khai báo mới hiện" (ví dụ +not-found, TASK-17).'
+  files_written:
+  - 'app/(tabs)/_layout.tsx (thêm 3 Tabs.Screen: index/trivia/leaderboard, icon Ionicons + title tiếng Việt)'
+  - 'app/(tabs)/index.tsx, trivia.tsx, leaderboard.tsx (placeholder, cùng pattern — ngoại lệ phá lệ #2)'
+  - 'package.json (thêm @expo/vector-icons — người học tự chọn qua trade-off, so với expo-symbols/emoji)'
+- id: C-014
+  concept: "Dynamic route [id].tsx và useLocalSearchParams"
+  task: TASK-14
+  date: '2026-09-09'
+  gate: passed
+  weak_points:
+  - 'Câu 2: diễn đạt hơi rối — nói "id không phải string" trong khi thực ra id LÀ string, chỉ là nó
+    không bằng number 123 khi so sánh ===. Kết luận (output "Không tìm thấy") đúng, chỉ cần làm rõ
+    lại phát biểu nếu buổi sau còn lẫn.'
+  files_written:
+  - 'app/match/[id].tsx (đọc id qua useLocalSearchParams<{ id: string }>(), hiển thị "Trận đấu #id")'
+  - 'app/(tabs)/index.tsx (thêm card mẫu, router.push(''/match/123'') nối điều hướng)'
+- id: C-015
+  concept: "Route ngoài tab & cách ẩn tab bar cho màn fullscreen"
+  task: TASK-15
+  date: '2026-09-09'
+  gate: retried
+  weak_points:
+  - 'Câu 4: gán nhầm trách nhiệm ẩn header cho Tabs.Screen ở (tabs)/_layout.tsx, trong khi recap nằm
+    NGOÀI (tabs) nên Tabs.Screen không liên quan gì tới nó — header của route ngoài tab do Stack CHA
+    (app/_layout.tsx) chịu trách nhiệm qua Stack.Screen options.headerShown. Đã giảng lại bảng phân
+    tầng (tab bar ← vị trí thư mục, header ← navigator trực tiếp chứa route) và hỏi lại — trả lời
+    đúng ở lần 2 (sửa app/_layout.tsx, thêm Stack.Screen headerShown=false).'
+  files_written:
+  - 'app/recap/[matchId].tsx (đọc matchId, nền đen tạm cho UX recap)'
+  - 'app/_layout.tsx (thêm Stack.Screen name="recap/[matchId]" headerShown: false)'
+- id: C-016
+  concept: "Presentation modes — modal vs push vs fullScreenModal"
+  task: TASK-16
+  date: '2026-09-09'
+  gate: retried
+  weak_points:
+  - 'Câu 4: trả lời mơ hồ "có sự kiện dismiss và show confirm" — không rõ đang nói Expo Router TỰ
+    ĐỘNG chặn vuốt xuống, hay có SỰ KIỆN để tự viết. Đã làm rõ: không có gì tự động, phải tự lắng
+    nghe sự kiện điều hướng (kiểu beforeRemove) và tự viết confirm — việc đó thuộc Sprint 3, KHÔNG
+    làm ở TASK-16. Trả lời đúng ở câu hỏi lại (không cần viết logic chặn hôm nay).'
+  files_written:
+  - 'app/modal/quiz-room.tsx (placeholder)'
+  - 'app/_layout.tsx (thêm Stack.Screen name="modal/quiz-room" presentation: modal, title tiếng Việt)'
+- id: C-017
+  concept: "Route đặc biệt +not-found và cú pháp catch-all [...rest]"
+  task: TASK-17
+  date: '2026-09-09'
+  gate: retried
+  weak_points:
+  - 'Câu 4: nói /match (thiếu segment id) vẫn khớp [id].tsx — sai, dynamic segment yêu cầu CHÍNH XÁC
+    1 segment tồn tại (dù giá trị gì cũng được), không match được với segment rỗng/thiếu. /match rơi
+    vào +not-found (không có match/index.tsx trong dự án). Đã giảng lại và hỏi lại — đúng ở lần 2.
+    Nhắc lại nếu buổi sau đụng catch-all optional ([[...rest]] hai lớp ngoặc, chưa dạy trong sprint
+    này).'
+  files_written:
+  - 'app/+not-found.tsx (nút "Về trang chủ" dùng router.replace(''/''))'
