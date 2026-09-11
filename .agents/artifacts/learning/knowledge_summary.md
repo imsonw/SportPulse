@@ -1198,6 +1198,59 @@ Sprint 2 sẽ chuyển sang network layer (TanStack Query), Zustand, và dữ li
   > **Q: Thuật toán Exponential Backoff giải quyết vấn đề gì khi thiết kế cơ chế Reconnect cho WebSocket trên ứng dụng Mobile?**  
   > A: API `WebSocket` tiêu chuẩn không có cơ chế tự động kết nối lại khi đứt mạng. Nếu client thử lại với chu kỳ ngắn cố định (ví dụ mỗi 1s), thiết bị sẽ bị ngốn pin nhanh và khi server vừa khôi phục sẽ bị hàng ngàn client đồng thời xả request gây ngỏm server lần 2 (Thundering Herd). Exponential Backoff giải quyết điều này bằng cách lùi thời gian chờ thử lại theo cấp số nhân (1s ➔ 2s ➔ 4s... max 30s), giúp giảm 80% số lần kết nối rác, bảo vệ pin thiết bị và cho server khoảng thở để hồi phục.
 
+## Buổi 33 — TASK-8: AppState — vì sao kết nối realtime phải dọn dẹp khi app xuống nền
+**Ngày:** 2026-09-11
+
+**Vấn đề:** `ws-client.ts` (Buổi 32) chỉ biết tự reconnect khi mạng đứt, không biết gì về app đang
+foreground hay background. Để app chạy nền không dọn kết nối = tốn pin vô ích cho việc không ai nhìn
+thấy UI cập nhật.
+
+**Mental model:** `AppState` báo 3 trạng thái vòng đời: `active` (foreground), `background` (đã rời
+app), `inactive` (chuyển tiếp ngắn, chủ yếu iOS). Chủ động gọi `disconnect()` khi vào `background`,
+`connect()` lại khi về `active` — không phải OS tự lo, phải code tường minh.
+
+**Đối chiếu cũ → mới:** Chính xác là cặp `applicationDidEnterBackground`/`willEnterForeground` (hoặc
+`UIApplication.willResignActiveNotification`/`didBecomeActiveNotification`) trong native iOS —
+`AppState` của RN là lớp bọc JS cho đúng cơ chế đó, không phải khái niệm mới.
+
+**Bẫy:**
+- Dùng `inactive` như `background` — `inactive` xảy ra cả lúc ngắn ngủi (kéo Control Center), disconnect
+  ở đó chỉ gây reconnect thừa, không lợi ích thật.
+- Quên cleanup listener của chính `AppState.addEventListener` khi unmount — memory leak kiểu khác
+  (nối lại bài `useEffect` cleanup Buổi 11 Sprint 1).
+- Gọi `connect()` mỗi lần `active` không kiểm tra đã kết nối chưa — an toàn NHỜ guard đã viết sẵn ở
+  `ws-client.ts` (Buổi 32), không phải nhờ `AppState` tự khôn.
+- App chạy nền nhiều giờ: OS có xu hướng ngắt/suspend socket ở tầng hệ thống, nhưng state JS
+  (`this.socket`) không tự biết — dẫn tới trạng thái "tưởng đang kết nối" nhưng thực ra đã chết, lỗi
+  âm thầm khó phát hiện nếu không chủ động disconnect trước.
+
+**Quyết định & vì sao:**
+- `src/lib/useAppStateSync.ts` — hook riêng, đặt ở `src/lib/` (không phải `src/features/matches/`)
+  vì `ws-client` vốn generic, không thuộc riêng feature nào.
+- Gọi ở `app/_layout.tsx`, ngay sau `useAuthStub()`, TRƯỚC mọi early return — bắt buộc theo rule of
+  hooks, không được gọi hook có điều kiện. Hệ quả: WS mở cả khi `status === 'unauthenticated'`, chưa
+  gate theo auth ở sprint này (để dành Sprint 4/F-016).
+- Tiện tay sửa nốt `ws-client.ts`: URL hardcode `'wss://api.sportpulse.com/live'` → đọc từ `WS_URL`
+  (env.ts) — nợ kỹ thuật phát hiện đầu buổi, không phải concept hôm nay nhưng thuần cơ học nên sửa
+  luôn thay vì để lại.
+
+**Sự cố ngoài buổi học (đã xử lý trước khi vào gate):** chạy `npx expo prebuild` + `yarn ios` báo
+thiếu thư viện. Nguyên nhân: `package.json` đã khai `@tanstack/react-query` + `@shopify/flash-list`
+từ session khác, nhưng chưa từng `npm install` trên máy này — sửa `package.json` không tự cài gói.
+Đã `npm install` (dùng npm, không yarn — dự án có `package-lock.json`), restart Metro `--clear`,
+verify app boot lại đúng với dữ liệu mock. Đã ghi thành bảng "Khi nào cần lệnh nào" vào README.md.
+
+**Câu hỏi phỏng vấn liên quan** *(câu hỏi khả dĩ — chủ đề "quản lý kết nối realtime theo vòng đời
+app" hay gặp khi CV có WebSocket/real-time feature):*
+
+> **Q: Vì sao cần lắng nghe `AppState` để đóng/mở lại kết nối WebSocket, thay vì cứ giữ nguyên kết
+> nối xuyên suốt vòng đời app?**
+> A: Duy trì kết nối khi app ở background vừa tốn pin (giữ radio/network active) vừa vô nghĩa (không
+> UI nào hiển thị cập nhật). Ngoài ra, hệ điều hành có xu hướng suspend/ngắt socket ở tầng hệ thống
+> khi app ở nền đủ lâu, nhưng state phía JS không tự biết điều đó — nếu không chủ động disconnect
+> trước, app có thể rơi vào trạng thái "tưởng đang kết nối" nhưng socket đã chết, gây lỗi âm thầm khi
+> mở lại. Chủ động đóng khi `background`, mở lại khi `active` giải quyết cả hai vấn đề.
+
 
 
 

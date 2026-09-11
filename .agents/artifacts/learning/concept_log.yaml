@@ -394,6 +394,25 @@ concepts:
   - 'Thắc mắc người học (W3C WebSocket Spec): hỏi vì sao WebSocket không tự reconnect ngầm — đã giải thích API WebSocket gốc là Transport Layer thuần túy, nhường quyền chọn chiến lược reconnect cho Developer.'
   files_written:
   - 'src/lib/ws-client.ts (WSClient class với exponential backoff reconnect, maxRetryDelay 30s, reset retryCount khi onopen, pub-sub listener pattern)'
+- id: C-033
+  concept: "AppState — vì sao kết nối realtime phải dọn dẹp khi app xuống nền"
+  task: TASK-8
+  date: '2026-09-11'
+  gate: passed
+  weak_points: []
+  files_written:
+  - 'src/lib/useAppStateSync.ts (connect ở active/mount, disconnect ở background, bỏ qua inactive,
+    cleanup listener + disconnect khi unmount)'
+  - 'app/_layout.tsx (gọi useAppStateSync() — luôn chạy bất kể auth status vì rule of hooks, chưa
+    gate theo auth, để dành Sprint 4)'
+  - 'src/lib/ws-client.ts (sửa URL hardcode "wss://api.sportpulse.com/live" thành WS_URL từ env.ts —
+    nợ kỹ thuật phát hiện đầu buổi, không thuộc concept TASK-8 nhưng tiện sửa luôn vì thuần cơ học)'
+  notes: >-
+    Trước buổi này: người dùng chạy `npx expo prebuild` + `yarn ios` báo thiếu thư viện. Nguyên nhân
+    gốc: package.json đã khai @tanstack/react-query + @shopify/flash-list (từ session khác) nhưng
+    chưa từng `npm install` trên máy này — sửa package.json không tự cài gói. Đã `npm install` (dùng
+    npm, không dùng yarn — dự án có package-lock.json), restart Metro với --clear, verify app boot
+    được với dữ liệu mock qua FlashList. Đã ghi thành mục "Khi nào cần lệnh nào" vào README.md.
 
 
 

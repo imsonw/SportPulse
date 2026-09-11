@@ -1,3 +1,5 @@
+import { WS_URL } from './env';
+
 type MessageListener<T = unknown> = (data: T) => void;
 
 interface WSClientOptions {
@@ -139,7 +141,7 @@ export class WSClient {
 
 // Singleton Instance sử dụng trong toàn bộ dự án
 export const wsClient = new WSClient({
-  url: 'wss://api.sportpulse.com/live', // Mock WS URL
+  url: WS_URL, // Đọc từ app.json > extra qua env.ts — không hardcode URL (nguyên tắc TASK-23 Sprint 1)
   initialRetryDelay: 1000,
   maxRetryDelay: 30000,
 });

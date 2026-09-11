@@ -3,6 +3,7 @@ import { Redirect, Stack } from 'expo-router';
 import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useAppStateSync } from '@/lib/useAppStateSync';
 
 // Khởi tạo QueryClient KHỎI bộ nhớ React Component.
 // WHY: Đảm bảo singleton instance tồn tại xuyên suốt vòng đời ứng dụng,
@@ -30,6 +31,10 @@ function useAuthStub(): { status: AuthStatus } {
 
 export default function RootLayout() {
   const { status } = useAuthStub();
+  // Luôn chạy bất kể status (rule of hooks: không được gọi hook có điều kiện, phải đặt trước mọi
+  // early return). Nghĩa là WS mở cả khi status='unauthenticated' — chưa gate theo auth ở sprint
+  // này (stub luôn trả 'authenticated' nên chưa lộ vấn đề); gate thật sự để dành Sprint 4/F-016.
+  useAppStateSync();
 
   // loading: render null, KHÔNG render <Stack> — tránh đúng lỗi nháy màn hình đã học ở gate.
   // unauthenticated: <Redirect> ngay trong lượt render này, không phải useEffect + router.push.
