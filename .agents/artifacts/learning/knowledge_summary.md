@@ -1072,4 +1072,136 @@ animation, auth guard là stub, vài màu hardcode cũ chưa dọn, chưa có ne
 
 Sprint 2 sẽ chuyển sang network layer (TanStack Query), Zustand, và dữ liệu thật thay placeholder.
 
+---
+
+## Buổi 26 — TASK-1: Discriminated Union trong TypeScript
+
+- **Vấn đề**: Khi một entity có nhiều loại hình thể khác nhau (như sự kiện trận đấu: Bàn thắng, Thẻ phạt, Thay người), nếu gom tất cả thuộc tính vào một Interface dùng `optional (?)`, thuộc tính thừa sẽ luôn bị `undefined` ở runtime, gây khó khăn cho autocomplete và dễ phát sinh lỗi crash.
+- **Mental model**: Mỗi loại sự kiện được định nghĩa riêng biệt và sở hữu chung 1 trường phân biệt (**Discriminant Property** `type`). Cơ chế **Control Flow Analysis** của TypeScript sẽ **Type Narrowing** chính xác trong khối `if/switch`.
+- **Đối chiếu cũ → mới**: 
+  - **Cũ (Any/Optional Interface)**: Khai báo 1 interface khổng lồ với nhiều optional fields, truy cập chỗ nào cũng phải ép kiểu `as` hoặc dùng `?.` không an toàn.
+  - **Mới (Discriminated Union)**: Định nghĩa `type MatchEvent = GoalEvent | CardEvent | StatusChangeEvent;` với `type: 'GOAL' | 'CARD' | 'STATUS_CHANGE'`.
+- **Bẫy**: Truy cập trực tiếp thuộc tính riêng (như `event.cardColor`) khi chưa check `event.type === 'CARD'` sẽ bị TypeScript chặn biên dịch (`Property does not exist on type GoalEvent`).
+- **Quyết định & Vì sao**: Tạo file `src/features/matches/types.ts` làm Single Source of Truth cho toàn bộ kiểu dữ liệu Domain của tính năng Matches.
+- **Câu hỏi phỏng vấn liên quan**:
+  > **Q: Discriminated Union trong TypeScript là gì và nó giúp giải quyết vấn đề gì khi xử lý State / Event phức tạp trong React Native?**  
+  > A: Discriminated Union là kỹ thuật kết hợp các Member Types lại bằng phép hợp (`|`), trong đó mỗi Member Type đều có chung một thuộc tính phân biệt dạng Literal (Discriminant Property, thường là `type` hoặc `kind`). Nó giải quyết triệt để rủi ro `undefined` runtime error của Interface optional tràn lan, giúp compiler tự động thu hẹp kiểu (Type Narrowing) dựa trên phân tích luồng lệnh (`if/switch`) và cung cấp Autocomplete chính xác 100%.
+
+---
+
+## Buổi 27 — TASK-2: Chiến lược Mock API (Async Contract Isolation)
+
+- **Vấn đề**: Khi chưa có Backend thật, nếu import mảng JSON đồng bộ trực tiếp ở UI, code chạy ngay 0ms → không bao giờ kiểm thử được các kịch bản bất đồng bộ như Loading (Skeleton), Error State hay Latency. Đến khi nối API thật sẽ phải sửa nát code UI.
+- **Mental model**: Tầng API đóng vai trò như một **Black Box Contract**. UI và TanStack Query chỉ tiêu thụ chữ ký hàm trả về `Promise<T>`. UI hoàn toàn không quan tâm bên trong hàm đang gọi `fetch()` thật hay giả lập `setTimeout`.
+- **Đối chiếu cũ → mới**:
+  - **Cũ (Redux-Saga/State thủ công)**: Thường dispatch action giả hoặc gọi mock ngầm bên trong Saga worker, trộn lẫn logic mock và logic quản lý state.
+  - **Mới (TanStack Query / Async Layer)**: Tầng API tách rời hoàn toàn thành file `src/features/matches/api.ts`. Hàm API trả về `Promise`, TanStack Query tự quản lý lifecycle.
+- **Bẫy**: Import mảng JSON trực tiếp khiến code chạy 0ms đồng bộ; hoặc hardcode dữ liệu giả nằm rải rác bên trong UI component thay vì gom về file API layer riêng.
+- **Quyết định & Vì sao**: Chọn phương án tự viết hàm async (`Promise` + `setTimeout`) trong `src/features/matches/api.ts` thay vì cài đặt MSW. Lý do: Đơn giản, zero-dependency, phù hợp với dự án MVP/học tập mà vẫn đảm bảo 100% Async Interface chuẩn.
+- **Câu hỏi phỏng vấn liên quan**:
+  > **Q: Khi xây dựng ứng dụng Frontend/Mobile mà chưa có Backend API thật, bạn chọn chiến lược Mock dữ liệu như thế nào để khi tích hợp API thật không phải refactor code UI?**  
+  > A: Tách biệt hoàn toàn tầng API (Data Access Layer) khỏi UI và State Management layer bằng cách tuân thủ Async Contract (`Promise<T>`). Bằng cách gom các hàm như `fetchMatches(): Promise<Match[]>` vào một module API riêng và giả lập độ trễ bằng `setTimeout`, toàn bộ các Hook (TanStack Query) và Component UI chỉ tiêu thụ chữ ký hàm bất đồng bộ đó. Khi Backend thật sẵn sàng, ta chỉ việc cập nhật nội dung hàm API mà giữ nguyên 100% logic ở UI và Hook.
+
+---
+
+## Buổi 28 — TASK-3: QueryClient & Server-State Cache Setup
+
+- **Vấn đề**: Việc lưu dữ liệu lấy từ Server vào Redux Store hay React State thủ công gây tốn công sức tạo Reducer/Action/Saga cồng kềnh, dễ dẫn đến rủi ro dữ liệu không đồng bộ giữa các màn hình và dư thừa request API trùng lặp.
+- **Mental model**: `QueryClient` là một **In-memory Key-Value Cache toàn cục** nằm HOÀN TOÀN NGOÀI cây React Component. Các component gọi `useQuery` thực chất là đang "Subscribe" vào một chìa khoá `queryKey` trong Cache Map này.
+- **Đối chiếu cũ → mới**:
+  - **Cũ (Redux / Redux-Saga)**: Client-state manager. Phải tự lưu mảng `matches` vào reducer, tự quản lý `isLoading`, dispatch action để saga fetch data rồi put success action.
+  - **Mới (TanStack Query)**: Server-state cache manager. Không có Reducer hay Action. Màn A fetch xong sẽ ghi vào `QueryClient` cache dưới key `['matches']`, Màn B gọi `useQuery(['matches'])` lập tức lấy được dữ liệu từ cache mà không cần Redux.
+- **Bẫy**: Khai báo `const queryClient = new QueryClient()` bên trong hàm Component (như `RootLayout`) ➔ Mỗi lần component re-render sẽ tạo instance mới và xoá sạch cache.
+- **Quyết định & Vì sao**:
+  - Khai báo `queryClient` dưới dạng Singleton ở ngoài cùng file `app/_layout.tsx`.
+  - Cấu hình `staleTime: 1000 * 30` (30 giây) để giữ dữ liệu fresh, tránh refetch dồn dập mỗi khi component re-mount.
+  - Bọc `<QueryClientProvider client={queryClient}>` bên trong `<SafeAreaProvider>` và bọc ngoài `<Stack>`.
+- **Câu hỏi phỏng vấn liên quan**:
+  > **Q: Sự khác biệt cơ bản về mặt tư duy kiến trúc giữa Redux Store và TanStack Query khi quản lý dữ liệu từ Backend trong ứng dụng React Native là gì?**  
+  > A: Redux Store là Client-State Manager — nó coi dữ liệu từ Server như State nội bộ của app và bắt dev phải tự viết boilerplate (reducer, action, async middleware như Saga) để đồng bộ. Ngược lại, TanStack Query coi dữ liệu Server là một Cache toàn cục tạm thời — dữ liệu thuộc về Server chứ không thuộc về Client. TanStack Query tự động quản lý Lifecycle của Cache (fetch, cache, deduplicate, stale-checking, refetch ngầm, invalidate) mà không cần dev phải tự tạo Reducer hay Redux Store.
+
+---
+
+## Buổi 29 — TASK-4: Query Key Factory & staleTime vs gcTime
+
+- **Vấn đề**: Việc hardcode chuỗi Query Key rải rác dẫn đến rủi ro sai lỗi chính tả và không thể làm mới/xoá cache theo phân cấp (Hierarchical Invalidating). Ngoài ra, nhầm lẫn giữa `staleTime` và `gcTime` khiến app refetch liên tục hoặc tràn RAM.
+- **Mental model**:
+  - **`staleTime`**: Thời gian dữ liệu được coi là Tươi (Fresh). Khi quá thời hạn này, dữ liệu trở thành Cũ (Stale).
+  - **`Stale-While-Revalidate`**: Khi dữ liệu đã Stale, người dùng mở lại màn hình ➔ UI **render ngay lập tức dữ liệu cũ từ Cache (0ms delay)**, đồng thời **âm thầm refetch ngầm ở background** để cập nhật dữ liệu mới mượt mà.
+  - **`gcTime` (Garbage Collection Time)**: Thời gian đếm ngược sau khi 0 component nào subscribe. Hết giờ ➔ Xóa sạch dữ liệu khỏi bộ nhớ RAM.
+- **Đối chiếu cũ → mới**:
+  - **Cũ (Hardcode String Key)**: `useQuery(['matches', id])` rải rác ở từng component.
+  - **Mới (Query Key Factory)**: Định nghĩa `matchKeys` tập trung với kiểu `as const`, hỗ trợ phân cấp `matchKeys.all`, `matchKeys.lists()`, `matchKeys.detail(id)`.
+- **Bẫy**: Nhầm tưởng `staleTime: 0` làm app không cache ➔ Bản chất nó vẫn hiển thị dữ liệu cache cũ trước rồi mới refetch ngầm ở background.
+- **Quyết định & Vì sao**:
+  - Tạo `src/features/matches/hooks.ts` chứa `useMatches` và `useMatchDetail`.
+  - Dùng `enabled: !!id` trong `useMatchDetail` để ngắt query rác khi route parameter chưa sẵn sàng.
+- **Câu hỏi phỏng vấn liên quan**:
+  > **Q: Phân biệt `staleTime` và `gcTime` (trước đây là `cacheTime`) trong TanStack Query? Cơ chế Stale-While-Revalidate giúp cải thiện UX ứng dụng Mobile thế nào?**  
+  > A: `staleTime` quyết định bao lâu thì dữ liệu bị xem là "cũ" và cần refetch ngầm. Trong khi đó `gcTime` quyết định bao lâu thì dữ liệu không còn component nào subscribe sẽ bị xóa hẳn khỏi RAM. Cơ chế Stale-While-Revalidate khi dữ liệu bị Stale sẽ ưu tiên render ngay dữ liệu cache lên màn hình mà không bắt user nhìn thấy Skeleton/Loading, sau đó âm thầm fetch ngầm ở background để cập nhật UI mượt mà mà không bị gián đoạn trải nghiệm người dùng.
+
+---
+
+## Buổi 30 — TASK-5: FlashList & View Recycling Performance
+
+- **Vấn đề**: `ScrollView + map` tạo tất cả View cùng lúc làm tràn RAM trên danh sách dài. `FlatList` ảo hóa nhưng liên tục hủy bỏ (unmount) và khởi tạo lại (mount) View khi cuộn nhanh ➔ gây giật lag (dropped frames) và hiển thị khoảng trắng (blank space).
+- **Mental model**: `FlashList` áp dụng nguyên lý **View Recycling**: Duy trì một số lượng Native View vừa đủ trên RAM. Khi 1 item cuộn ra khỏi màn hình, FlashList giữ nguyên Native View đó đẩy sang vị trí mới và chỉ re-bind dữ liệu (`item` mới) vào Component.
+- **Đối chiếu cũ → mới**:
+  - **Cũ (Native iOS UIKit)**: `UITableView` dùng `dequeueReusableCell(withIdentifier:for:)` để lấy cell cũ từ pool và gọi `cell.configure(with: item)`.
+  - **Mới (React Native FlashList)**: FlashList hoạt động hệt như `UITableView`! Nó tái sử dụng các React Component / Native Views đã mount sẵn thay vì unmount như `FlatList`.
+- **Bẫy**:
+  - Khai báo sai `estimatedItemSize` (hoặc tính sai lệch quá nhiều ở phiên bản cũ): Làm FlashList tính sai tổng chiều cao và scroll offset ➔ Thanh cuộn bị nhảy và cuộn giật giật (scroll jank).
+  - *Phát hiện thực nghiệm ở Expo SDK 57 / FlashList v2 (New Architecture)*: Trên New Architecture (Fabric), FlashList tự động tính toán kích thước chiều cao ở tầng Native nên không bắt buộc truyền `estimatedItemSize`.
+- **Quyết định & Vì sao**:
+  - Cài đặt `@shopify/flash-list`.
+  - Cập nhật `app/(tabs)/index.tsx` sử dụng `<FlashList>` kết hợp với hook `useMatches()`.
+- **Câu hỏi phỏng vấn liên quan**:
+  > **Q: Vì sao FlashList lại đạt được hiệu năng 60fps tốt hơn nhiều so với FlatList mặc định của React Native khi hiển thị danh sách dài?**  
+  > A: FlatList ảo hóa theo cơ chế Mount/Unmount (khi item cuộn khỏi màn hình sẽ bị unmount hoàn toàn, và khi item mới sắp xuất hiện sẽ mount component mới từ đầu), gây tốn chi phí khởi tạo JS Component và Native Views dẫn đến giật khựng khung hình. Trong khi đó, FlashList áp dụng cơ chế View Recycling (tương tự `UITableView` trong iOS UIKit hay `RecyclerView` trong Android): giữ nguyên một số lượng Component/Native View cố định và chỉ re-bind prop `item` mới khi cuộn, loại bỏ hoàn toàn chi phí mount/unmount component.
+
+---
+
+## Buổi 31 — TASK-6: Trạng thái tải (isPending vs isFetching vs isRefetching)
+
+- **Vấn đề**: Dùng chung một biến `isLoading` duy nhất để quyết định hiện Skeleton khiến thao tác Pull-to-refresh làm toàn bộ danh sách trận đấu biến mất và bị che bởi màn hình Skeleton chớp giật.
+- **Mental model**:
+  - **`isPending` (isLoading)**: Chưa có dữ liệu nào trong Cache Map ➔ **Dùng duy nhất cho LoadingSkeleton lần đầu**.
+  - **`isFetching`**: Đang có request API diễn ra ngầm (dữ liệu cũ vẫn hiển thị bình thường).
+  - **`isRefetching`**: Đang refetch ngầm do người dùng vuốt tay Pull-to-refresh ➔ **Dùng cho `refreshing` của RefreshControl**.
+- **Đối chiếu cũ → mới**:
+  - **Cũ (Redux-Saga)**: Tự tạo và tự chuyển đổi 2 biến boolean `isInitialLoading` và `isRefreshing` trong Reducer thủ công qua từng Action.
+  - **Mới (TanStack Query)**: TanStack Query cấp sẵn `isPending`, `isRefetching` và hàm `refetch()`.
+- **Bẫy**: Dùng `isFetching` để render Skeleton ➔ Khi app refetch ngầm ở background hoặc khi user kéo Pull-to-refresh, toàn bộ UI lập tức biến thành Skeleton.
+- **Quyết định & Vì sao**:
+  - Cập nhật `app/(tabs)/index.tsx`: Chỉ render `<LoadingSkeleton />` khi `isPending === true`.
+  - Truyền `refreshing={isRefetching}` và `onRefresh={refetch}` vào `<FlashList>` để hiển thị Native RefreshControl mượt mà.
+- **Câu hỏi phỏng vấn liên quan**:
+  > **Q: Khi tích hợp tính năng Pull-to-Refresh kết hợp với TanStack Query trong React Native, bạn quản lý các cờ trạng thái `isPending`, `isFetching`, `isRefetching` như thế nào để đảm bảo trải nghiệm UX không bị chớp giật màn hình?**  
+  > A: Ta chỉ dùng cờ `isPending` (khi chưa có dữ liệu nào trong cache) để hiển thị Skeleton hoặc Fullscreen Loading Spinner trong lần mở ứng dụng đầu tiên. Đối với tính năng Pull-to-Refresh, ta giữ nguyên danh sách dữ liệu cũ đang render trên UI và chỉ truyền cờ `isRefetching` vào prop `refreshing` cùng hàm `refetch()` vào `onRefresh` của `FlashList` (hoặc `RefreshControl`). Cách làm này giúp spinner kéo thả của hệ thống hiển thị mượt mà phía trên danh sách cũ mà không làm biến mất UI hay gây chớp giật màn hình.
+
+---
+
+## Buổi 32 — TASK-7: WebSocket Reconnect & Exponential Backoff
+
+- **Vấn đề**: API `WebSocket` tiêu chuẩn của W3C không tự động reconnect khi mất kết nối. Nếu thử kết nối lại liên tục mỗi 1s không dừng, ứng dụng sẽ bị ngốn pin, làm nóng máy và có nguy cơ làm sập server (Thundering Herd Problem) khi hệ thống vừa khôi phục.
+- **Mental model**: **Exponential Backoff**: Lùi thời gian chờ retry theo công thức lũy thừa \( delay = \text{initialDelay} \times 2^{\text{retryCount}} \) (1s ➔ 2s ➔ 4s ➔ 8s ➔ 16s... max 30s).
+- **Đối chiếu cũ → mới**:
+  - **Cũ (Redux-Saga `eventChannel`)**: Thường viết logic reconnect lặp lại ngay bên trong Saga worker.
+  - **Mới (Standalone Class / Event Emitter)**: Tách riêng module `WSClient` thành một class/object độc lập với React tree và Redux, tự quản lý lifecycle kết nối ngầm và cấp pattern Pub-Sub.
+- **Bẫy**:
+  - Quên reset `retryCount = 0` khi `ws.onopen` (kết nối thành công) ➔ Làm lần mất mạng sau này bị lùi delay quá lâu.
+  - Nhầm lẫn rằng `WebSocket` tự có tính năng auto-reconnect ➔ Thực tế chỉ các thư viện tầng trên như Socket.io mới có.
+- **Quyết định & Vì sao**:
+  - Tạo `src/lib/ws-client.ts` chứa class `WSClient` với `initialRetryDelay: 1000`, `maxRetryDelay: 30000`.
+  - Hỗ trợ `emitMockEvent()` cho phép tự bắn event giả lập trong môi trường Dev/Test mà không cần dựng WS server thật.
+- **Câu hỏi phỏng vấn liên quan**:
+  > **Q: Thuật toán Exponential Backoff giải quyết vấn đề gì khi thiết kế cơ chế Reconnect cho WebSocket trên ứng dụng Mobile?**  
+  > A: API `WebSocket` tiêu chuẩn không có cơ chế tự động kết nối lại khi đứt mạng. Nếu client thử lại với chu kỳ ngắn cố định (ví dụ mỗi 1s), thiết bị sẽ bị ngốn pin nhanh và khi server vừa khôi phục sẽ bị hàng ngàn client đồng thời xả request gây ngỏm server lần 2 (Thundering Herd). Exponential Backoff giải quyết điều này bằng cách lùi thời gian chờ thử lại theo cấp số nhân (1s ➔ 2s ➔ 4s... max 30s), giúp giảm 80% số lần kết nối rác, bảo vệ pin thiết bị và cho server khoảng thở để hồi phục.
+
+
+
+
+
+
+
 

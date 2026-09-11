@@ -4,6 +4,8 @@
   "main": "index.ts",
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
+    "@shopify/flash-list": "^2.3.2",
+    "@tanstack/react-query": "^5.102.8",
     "expo": "~57.0.20",
     "expo-audio": "~57.0.4",
     "expo-constants": "~57.0.17",

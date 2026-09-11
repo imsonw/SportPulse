@@ -331,3 +331,72 @@ concepts:
     phát hiện New Arch vô điều kiện ở TASK-3, Dev Client vs Expo Go, Config Plugin, vòng đời
     prebuild) và tóm tắt Module 2-4 do người học chọn dừng ở mức tự viết 2 gạch đầu dòng cho
     Module 1, không viết thêm cho Module 2-4.
+- id: C-026
+  concept: "Discriminated union — model 1 khái niệm 'sự kiện trận đấu' có nhiều hình dạng khác nhau"
+  task: TASK-1
+  date: '2026-09-11'
+  gate: passed
+  weak_points:
+  - 'Câu 2 (thành phần cấu tạo): lúc đầu nêu chung chung "cần có type, tên type và kiểu dữ liệu define trong type". Đã chuẩn hoá lại 3 thuật ngữ chuẩn TS: (1) kiểu thành phần riêng biệt, (2) thuộc tính discriminant chung (type literal), (3) phép hợp Union (|).'
+  files_written:
+  - 'src/features/matches/types.ts (MatchStatus, Team, GoalEvent, CardEvent, StatusChangeEvent, MatchEvent discriminated union, Match)'
+- id: C-027
+  concept: "Chiến lược mock API — mock ở tầng nào (network-level vs hàm giả lập tự viết)"
+  task: TASK-2
+  date: '2026-09-11'
+  gate: passed
+  weak_points:
+  - 'Câu 1 (nhược điểm hàm tự viết): nêu "rối code" — đã bổ sung nhược điểm cốt lõi: phải sửa code hàm mock khi chuyển backend thật, không giả lập được HTTP status / network error linh hoạt như MSW ở tầng network.'
+  files_written:
+  - 'src/features/matches/api.ts (MOCK_MATCHES 3 trận mẫu, fetchMatches, fetchMatchById với Promise + setTimeout)'
+- id: C-028
+  concept: "QueryClient & cache — vì sao 'server state' không phải React state thường"
+  task: TASK-3
+  date: '2026-09-11'
+  gate: passed
+  weak_points:
+  - 'Câu 2 (đối chiếu Redux): trả lời "không biết" lúc đầu — đã dùng câu hỏi gợi ý Socratic về chìa khoá queryKey chung, người học tự kết luận đúng "nó lấy từ cached ra" không cần Redux store hay dispatch action.'
+  files_written:
+  - 'app/_layout.tsx (khai báo queryClient singleton ở ngoài component, bọc QueryClientProvider vào cây provider)'
+- id: C-029
+  concept: "useQuery — queryKey là gì, staleTime khác gcTime (cacheTime) ra sao"
+  task: TASK-4
+  date: '2026-09-11'
+  gate: passed
+  weak_points:
+  - 'Câu 1 (Stale-While-Revalidate): trả lời "UI hiển thị dữ liệu mới không lấy từ cached" — đã uốn lại cơ chế Stale-While-Revalidate: UI lập tức render dữ liệu cũ từ cache lên màn hình trước (0ms), đồng thời âm thầm bắn request ngầm ở background để cập nhật sang dữ liệu mới.'
+  files_written:
+  - 'src/features/matches/hooks.ts (Query Key Factory matchKeys, useMatches, useMatchDetail với enabled guard)'
+- id: C-030
+  concept: "FlashList — recycling view, đối chiếu UITableView cell reuse (native iOS)"
+  task: TASK-5
+  date: '2026-09-11'
+  gate: passed
+  weak_points:
+  - 'Câu 2 (estimatedItemSize): trả lời "bị bóp cứng 10px vỡ layout" — đã uốn lại thực tế: item vẫn tự phình theo style 120px khi mount xong, nhưng estimatedItemSize sai làm FlashList tính sai scroll height & offset làm thanh cuộn nhảy chập chờn và cuộn bị giật lag (scroll jank).'
+  files_written:
+  - 'app/(tabs)/index.tsx (cài @shopify/flash-list, kết nối hook useMatches(), render danh sách trận bằng FlashList)'
+- id: C-031
+  concept: "Trạng thái tải: loading lần đầu vs refetch vs pull-to-refresh — 3 cái khác nhau"
+  task: TASK-6
+  date: '2026-09-11'
+  gate: passed
+  weak_points:
+  - 'Câu 1 (isFetching vs isRefetching): lúc đầu chưa phân biệt rõ isRefetching (pull-to-refresh) là subset của isFetching — đã uốn lại lý do vì sao chỉ dùng isPending cho LoadingSkeleton và refreshing={isRefetching} cho Pull-to-refresh.'
+  files_written:
+  - 'app/(tabs)/index.tsx (tích hợp isPending cho LoadingSkeleton, refreshing={isRefetching} và onRefresh={refetch} cho FlashList)'
+- id: C-032
+  concept: "WebSocket lifecycle — kết nối, mất kết nối, reconnect có backoff"
+  task: TASK-7
+  date: '2026-09-11'
+  gate: passed
+  weak_points:
+  - 'Thắc mắc người học (W3C WebSocket Spec): hỏi vì sao WebSocket không tự reconnect ngầm — đã giải thích API WebSocket gốc là Transport Layer thuần túy, nhường quyền chọn chiến lược reconnect cho Developer.'
+  files_written:
+  - 'src/lib/ws-client.ts (WSClient class với exponential backoff reconnect, maxRetryDelay 30s, reset retryCount khi onopen, pub-sub listener pattern)'
+
+
+
+
+
+
