@@ -17,8 +17,6 @@ tasks_completed:
   - TASK-15
   - TASK-16
   - TASK-17
-tasks_in_progress: []
-remaining_tasks:
   - TASK-18
   - TASK-19
   - TASK-20
@@ -26,6 +24,8 @@ remaining_tasks:
   - TASK-22
   - TASK-23
   - TASK-24
+tasks_in_progress: []
+remaining_tasks:
   - TASK-25
 notes: >-
   Sprint chạy theo learning_mode của sprint_plan@v2.yaml — mỗi task là 1 buổi học qua gate quiz

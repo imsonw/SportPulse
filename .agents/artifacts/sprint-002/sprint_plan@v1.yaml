@@ -1,0 +1,322 @@
+sprint_goal: >-
+  Live Scores hoạt động end-to-end: fetch + cache bằng TanStack Query, render bằng FlashList,
+  cập nhật tỉ số realtime qua WebSocket bằng cách mutate cache thay vì refetch. Kết thúc sprint:
+  tab Trực tiếp hiện danh sách trận đấu thật (từ mock server), bấm vào xem chi tiết có prefetch,
+  tỉ số tự cập nhật khi có event WebSocket, không còn dữ liệu placeholder cứng.
+
+learning_mode:
+  enabled: true
+  skill: learn-then-build
+  rationale: >-
+    Tiếp tục cadence của Sprint 1: mỗi task là 1 khái niệm = 1 buổi học qua gate quiz. Sprint này
+    nặng về thay đổi mental model nhiều nhất trong cả roadmap — từ "state quản lý tay qua
+    useState/reducer + Redux-Saga" sang "server state là cache, không phải state" (TanStack Query)
+    và "mutate cache trực tiếp thay vì dispatch action" (điểm khác biệt lớn nhất so với Redux-Saga
+    cũ, cần đào sâu nhất).
+  cadence: "1 khái niệm = 1 buổi; tối đa 1 file được viết mỗi lượt (trừ khi phá lệ #2 — lặp pattern)"
+  gate: >-
+    Mỗi task phải qua quiz bắt buộc (3-5 câu, người học trả lời bằng chữ, Claude chấm) TRƯỚC khi
+    được viết code. Chưa qua gate thì không tạo file.
+  carry_over_from_sprint_1: >-
+    concept_log.yaml ghi nhận người học từng lẫn giữa "object mới mỗi render luôn là vấn đề" và
+    "chỉ là vấn đề khi phá vỡ memo" (C-021) — sprint này có FlashList/list dài, đúng ngữ cảnh cần
+    memo thật, sẽ nhắc lại điểm này khi tới buổi liên quan.
+
+backlog:
+  - id: F-005
+    title: Mock API + domain types cho matches
+    description: >-
+      Mock server trả về danh sách trận đấu, chi tiết trận, timeline sự kiện. Định nghĩa type
+      Match, MatchEvent, Team trong src/features/matches/types.ts.
+    acceptance_criteria:
+      - "src/features/matches/types.ts export Match, Team, MatchEvent (discriminated union theo `type`: GOAL | CARD | STATUS_CHANGE) — không dùng any"
+      - "Có cơ chế mock trả dữ liệu bất đồng bộ (giả lập network delay), không phải import thẳng mảng JSON đồng bộ"
+      - "Ít nhất 3 trận đấu mẫu với trạng thái khác nhau (LIVE, FINISHED, SCHEDULED)"
+
+  - id: F-006
+    title: TanStack Query setup + feed danh sách trận đấu
+    description: >-
+      QueryClient + provider, hook useMatches() (staleTime, background refetch, pull-to-refresh),
+      render feed bằng FlashList với skeleton + error/empty state.
+    acceptance_criteria:
+      - "QueryClientProvider bọc ở root layout, đặt đúng vị trí so với các provider khác đã có (SafeAreaProvider, GestureHandlerRootView)"
+      - "useMatches() dùng useQuery, có queryKey rõ ràng, staleTime hợp lý (không mặc định 0)"
+      - "(tabs)/index.tsx render danh sách trận bằng FlashList, không phải FlatList hay map thủ công"
+      - "Có skeleton lúc loading (dùng LoadingSkeleton đã có), EmptyState khi rỗng, thông báo lỗi rõ ràng khi fetch fail"
+      - "Pull-to-refresh gọi refetch, phân biệt được với loading lần đầu (không hiện skeleton đè lên list đã có)"
+
+  - id: F-007
+    title: WebSocket client + realtime score cache mutation
+    description: >-
+      src/lib/ws-client.ts (kết nối, auto-reconnect có backoff, cleanup theo AppState). Hook
+      useLiveScoreSync() nhận event GOAL/CARD/STATUS_CHANGE và gọi queryClient.setQueryData để
+      cập nhật đúng 1 trận trong list + detail, không refetch toàn bộ.
+    acceptance_criteria:
+      - "src/lib/ws-client.ts tự kết nối lại khi mất kết nối, có backoff (không retry dồn dập vô hạn)"
+      - "Cleanup kết nối khi AppState về background, kết nối lại khi về foreground"
+      - "useLiveScoreSync() cập nhật cache bằng queryClient.setQueryData, KHÔNG gọi invalidateQueries/refetch cho mỗi event"
+      - "Cập nhật đồng thời cả query danh sách (list) và query chi tiết (detail) của đúng 1 trận, không ảnh hưởng các trận khác"
+      - "Test được bằng cách tự bắn event giả (không cần WS server thật) và thấy UI cập nhật không giật/refetch toàn màn"
+
+  - id: F-008
+    title: Màn chi tiết trận đấu match/[id]
+    description: >-
+      Tỉ số realtime, timeline sự kiện, prefetch từ feed để mở màn không thấy loading.
+    acceptance_criteria:
+      - "Bấm vào 1 trận từ feed → match/[id] hiện dữ liệu ngay lập tức (không có màn loading nếu đã prefetch)"
+      - "Timeline sự kiện render bằng FlashList (không phải map + ScrollView cho danh sách dài)"
+      - "Tỉ số ở match/[id] tự cập nhật khi có WS event, đồng bộ với tỉ số hiện ở feed"
+
+  - id: F-021
+    title: "Ảnh & bộ nhớ — tránh OOM với danh sách ảnh nặng"
+    description: >-
+      Dùng expo-image cho logo đội/avatar trong feed và timeline: cache 2 tầng (memory + disk),
+      downsampling theo kích thước hiển thị thay vì decode full-res.
+    acceptance_criteria:
+      - "Toàn bộ logo đội/avatar trong feed và timeline dùng component Image của expo-image, không dùng Image gốc của react-native"
+      - "Khai báo contentFit + kích thước cố định (không để ảnh tự phình theo intrinsic size)"
+      - "Giải thích được (không cần code riêng) vì sao expo-image tránh OOM tốt hơn Image gốc khi list dài"
+
+# ============================================================================
+# MODULE 1 — Domain types & mock data (F-005) — 2 buổi
+# Mục tiêu module: có dữ liệu đáng tin cậy về KIỂU trước khi build UI/cache lên trên nó.
+# ============================================================================
+tasks:
+  - id: TASK-1
+    owner: DEV
+    concept: "Discriminated union — model 1 khái niệm 'sự kiện trận đấu' có nhiều hình dạng khác nhau"
+    learning_objective: >-
+      Giải thích được vì sao dùng field `type` phân biệt (discriminant) thay vì optional field tràn
+      lan (`goalScorer?`, `cardColor?`, `newStatus?` cùng nằm 1 interface), và TypeScript narrow type
+      chính xác trong switch/if nhờ discriminant đó.
+    gate_focus: >-
+      Cho 1 object MatchEvent, hỏi TypeScript có tự biết truy cập `event.cardColor` là an toàn hay
+      không nếu chưa check `event.type === 'CARD'` — và tại sao interface "optional field tràn lan"
+      không có được sự an toàn này.
+    description: >-
+      Định nghĩa `Match`, `Team`, `MatchEvent` (discriminated union theo `type: 'GOAL' | 'CARD' |
+      'STATUS_CHANGE'`) trong `src/features/matches/types.ts`.
+    deliverable: "src/features/matches/types.ts"
+    depends_on: []
+
+  - id: TASK-2
+    owner: DEV
+    concept: "Chiến lược mock API — mock ở tầng nào (network-level vs hàm giả lập tự viết)"
+    learning_objective: >-
+      Nêu được trade-off giữa mock network-level (msw — component không biết đang bị mock, giống
+      production nhất) và mock bằng hàm async tự viết trả `Promise` + `setTimeout` (đơn giản, không
+      cần cài thư viện, nhưng phải tự thay bằng fetch thật sau này) — và tự CHỌN hướng cho dự án.
+    gate_focus: >-
+      Nếu chọn hàm tự viết, code gọi nó (hook `useMatches`) có cần sửa gì khi sau này thay bằng
+      `fetch` thật không — hay chỉ cần đổi bên trong hàm mock, phần gọi hook giữ nguyên?
+    description: >-
+      Viết hàm mock trả về danh sách/chi tiết trận theo hướng đã chọn, có giả lập network delay,
+      ít nhất 3 trận mẫu (LIVE, FINISHED, SCHEDULED).
+    deliverable: "src/features/matches/api.ts (hoặc src/mocks/ tuỳ hướng đã chọn)"
+    depends_on: [TASK-1]
+
+# ============================================================================
+# MODULE 2 — TanStack Query & feed (F-006) — 4 buổi
+# Mục tiêu module: thay mental model "state loading/error/data tự quản bằng useState/reducer"
+# bằng "server state là CACHE do thư viện quản, component chỉ subscribe".
+# ============================================================================
+  - id: TASK-3
+    owner: DEV
+    concept: "QueryClient & cache — vì sao 'server state' không phải React state thường"
+    learning_objective: >-
+      Giải thích được QueryClient là một cache toàn cục nằm NGOÀI cây component (key-value store
+      theo queryKey), còn `useQuery` chỉ là một SUBSCRIPTION đọc/ghi vào cache đó — không phải
+      state cục bộ của component gọi nó.
+    gate_focus: >-
+      Bẫy đối chiếu Redux-Saga: "Tôi cần lưu danh sách trận vào reducer để nhiều màn cùng đọc được"
+      — với TanStack Query, việc "nhiều màn cùng đọc 1 dữ liệu" giải quyết thế nào mà không cần
+      Redux store?
+    description: >-
+      Cài `@tanstack/react-query`, tạo `QueryClient`, bọc `QueryClientProvider` vào root layout —
+      xác định đúng vị trí so với các provider đã có.
+    deliverable: "app/_layout.tsx (thêm QueryClientProvider)"
+    depends_on: [TASK-2]
+
+  - id: TASK-4
+    owner: DEV
+    concept: "useQuery — queryKey là gì, staleTime khác gcTime (cacheTime) ra sao"
+    learning_objective: >-
+      Giải thích được queryKey là "địa chỉ" của một entry trong cache (đổi key = coi như dữ liệu
+      khác hẳn), và phân biệt được staleTime (bao lâu thì coi dữ liệu là "cũ", cần refetch ngầm)
+      với gcTime (bao lâu thì XOÁ hẳn khỏi cache khi không ai dùng).
+    gate_focus: >-
+      Cho 2 màn cùng gọi `useQuery(['matches'], ...)` — màn A mount trước, màn B mount sau khi màn A
+      đã fetch xong. Màn B có phải chờ fetch lại từ đầu không, hay dùng ngay dữ liệu màn A đã có?
+    description: "Viết hook `useMatches()` trong `src/features/matches/hooks.ts`."
+    deliverable: "src/features/matches/hooks.ts"
+    depends_on: [TASK-3]
+
+  - id: TASK-5
+    owner: DEV
+    concept: "FlashList — recycling view, đối chiếu UITableView cell reuse (native iOS)"
+    learning_objective: >-
+      Giải thích được FlashList tái sử dụng (recycle) các view đã render thay vì tạo mới liên tục
+      khi cuộn — đúng cơ chế `UITableView`/`UICollectionView` reuse cell mà bạn đã biết từ UIKit,
+      và vì sao `FlatList`/`ScrollView + map` không làm được điều này ở list dài.
+    gate_focus: >-
+      Đối chiếu trực tiếp: "cellForRowAt` dequeue reusable cell" trong UIKit tương ứng với cơ chế
+      nào trong FlashList? Nếu không khai `estimatedItemSize` gần đúng, chuyện gì xảy ra?
+    description: >-
+      Cài `@shopify/flash-list`, thay danh sách trận đấu ở `(tabs)/index.tsx` bằng `FlashList`
+      dùng `useMatches()`.
+    deliverable: "app/(tabs)/index.tsx (thay bằng FlashList)"
+    depends_on: [TASK-4]
+
+  - id: TASK-6
+    owner: DEV
+    concept: "Trạng thái tải: loading lần đầu vs refetch vs pull-to-refresh — 3 cái khác nhau"
+    learning_objective: >-
+      Phân biệt được `isPending`/`isLoading` (chưa có dữ liệu nào), `isFetching` (đang fetch ngầm,
+      có thể đã có dữ liệu cũ để hiện), và `isRefetching` (do người dùng chủ động kéo) — và biết
+      dùng cái nào để quyết định hiện skeleton hay chỉ hiện spinner nhỏ ở đầu list.
+    gate_focus: >-
+      Bẫy: nếu dùng chung 1 biến `isLoading` để quyết định hiện `LoadingSkeleton`, pull-to-refresh
+      có vô tình làm cả list biến mất rồi hiện skeleton đè lên không? Vì sao?
+    description: >-
+      Thêm skeleton (`LoadingSkeleton` đã có từ Sprint 1), `EmptyState` khi rỗng, thông báo lỗi, và
+      pull-to-refresh (`RefreshControl`/prop `refreshing` của FlashList) vào `(tabs)/index.tsx`.
+    deliverable: "app/(tabs)/index.tsx (thêm skeleton/empty/error/pull-to-refresh)"
+    depends_on: [TASK-5]
+
+# ============================================================================
+# MODULE 3 — WebSocket & realtime cache mutation (F-007) — 3 buổi, trọng tâm sprint
+# Mục tiêu module: thay "dispatch action → reducer update state" (Redux-Saga) bằng
+# "mutate cache trực tiếp theo queryKey" — khác biệt mental model lớn nhất sprint này.
+# ============================================================================
+  - id: TASK-7
+    owner: DEV
+    concept: "WebSocket lifecycle — kết nối, mất kết nối, reconnect có backoff"
+    learning_objective: >-
+      Giải thích được vì sao reconnect ngay lập tức liên tục (không backoff) có thể làm nặng
+      server/pin máy, và cơ chế backoff (tăng dần thời gian chờ mỗi lần retry thất bại) giải quyết
+      vấn đề đó thế nào.
+    gate_focus: >-
+      Nếu server WS chết trong 30 giây rồi sống lại, với backoff tăng dần (1s, 2s, 4s, 8s...), client
+      sẽ thử kết nối lại bao nhiêu lần trong 30 giây đó, so với retry cố định mỗi 1 giây?
+    description: >-
+      Viết `src/lib/ws-client.ts`: kết nối, tự reconnect có exponential backoff, không giới hạn số
+      lần thử (hoặc giới hạn hợp lý — người học quyết định).
+    deliverable: "src/lib/ws-client.ts"
+    depends_on: [TASK-6]
+
+  - id: TASK-8
+    owner: DEV
+    concept: "AppState — vì sao kết nối realtime phải dọn dẹp khi app xuống nền"
+    learning_objective: >-
+      Giải thích được duy trì WebSocket khi app ở background vừa tốn pin vừa vô nghĩa (không ai
+      nhìn thấy UI cập nhật), và cách lắng nghe `AppState` để đóng kết nối lúc background, mở lại
+      lúc foreground — không phải để mặc cho hệ điều hành tự xử lý.
+    gate_focus: >-
+      Nếu không cleanup theo AppState, điều gì có nguy cơ xảy ra sau khi người dùng để app chạy nền
+      nhiều giờ rồi mở lại — kết nối cũ còn dùng được không?
+    description: >-
+      Tích hợp `AppState.addEventListener` vào `ws-client.ts` hoặc một hook riêng, đóng/mở kết nối
+      theo trạng thái app.
+    deliverable: "src/lib/ws-client.ts (mở rộng) hoặc src/features/matches/useAppStateSync.ts"
+    depends_on: [TASK-7]
+
+  - id: TASK-9
+    owner: DEV
+    concept: "queryClient.setQueryData — mutate cache trực tiếp, đối chiếu dispatch action Redux-Saga"
+    learning_objective: >-
+      Giải thích được `setQueryData` ghi thẳng vào cache theo đúng `queryKey` (giống bạn tự tay sửa
+      state trong reducer, nhưng không cần action/reducer boilerplate), và vì sao dùng
+      `invalidateQueries` (trigger refetch toàn bộ) cho MỖI event WS là lãng phí và có thể gây giật.
+    gate_focus: >-
+      Bẫy đối chiếu Redux-Saga sâu nhất sprint: "Tôi quen dispatch một action rồi để reducer tính
+      lại state mới" — với `setQueryData`, ai đóng vai "reducer" tính state mới, và nó có chạy qua
+      action/middleware nào không?
+    description: >-
+      Viết `useLiveScoreSync()`: nhận event GOAL/CARD/STATUS_CHANGE từ `ws-client`, gọi
+      `queryClient.setQueryData` cập nhật đúng 1 trận ở cả query list và query detail.
+    deliverable: "src/features/matches/useLiveScoreSync.ts"
+    depends_on: [TASK-8]
+
+# ============================================================================
+# MODULE 4 — Match detail & prefetch (F-008) — 2 buổi
+# ============================================================================
+  - id: TASK-10
+    owner: DEV
+    concept: "Prefetch — nạp sẵn cache TRƯỚC khi người dùng điều hướng tới"
+    learning_objective: >-
+      Giải thích được `prefetchQuery`/gán trực tiếp dữ liệu list-item vào cache detail lúc bấm vào
+      card, để `match/[id]` render ngay bằng dữ liệu đã có (dù chưa đầy đủ) thay vì hiện loading rồi
+      mới fetch.
+    gate_focus: >-
+      Nếu prefetch bằng dữ liệu RÚT GỌN từ list-item (không đầy đủ như detail thật), `match/[id]`
+      nên hiện gì trong lúc chờ fetch đầy đủ chạy ngầm — loading trắng, hay dữ liệu rút gọn trước
+      rồi "vá" thêm khi đủ?
+    description: >-
+      Cập nhật card ở feed: khi bấm vào, gọi prefetch/set cache trước khi `router.push`. Cập nhật
+      `match/[id].tsx` đọc từ `useQuery` cùng `queryKey` với detail.
+    deliverable: "app/match/[id].tsx (đọc qua useQuery) + app/(tabs)/index.tsx (thêm prefetch trước push)"
+    depends_on: [TASK-9]
+
+  - id: TASK-11
+    owner: DEV
+    concept: "(Lặp pattern FlashList — không có khái niệm mới, phá lệ #2)"
+    learning_objective: "Củng cố FlashList cho danh sách timeline sự kiện trong match/[id]."
+    gate_focus: "Không cần gate. Nếu vẫn thấy lạ tay thì quay lại TASK-5."
+    description: "Render timeline sự kiện trận đấu trong match/[id].tsx bằng FlashList, cùng pattern TASK-5."
+    deliverable: "app/match/[id].tsx (mở rộng, thêm timeline FlashList)"
+    depends_on: [TASK-10]
+
+# ============================================================================
+# MODULE 5 — Ảnh & OOM (F-021) — 1 buổi
+# ============================================================================
+  - id: TASK-12
+    owner: DEV
+    concept: "expo-image — cache 2 tầng và downsampling, vì sao Image gốc RN không tự làm"
+    learning_objective: >-
+      Giải thích được `expo-image` cache ảnh ở CẢ memory (RAM, nhanh nhưng mất khi kill app) VÀ disk
+      (chậm hơn RAM nhưng sống qua session), và nó DECODE ảnh theo kích thước HIỂN THỊ thay vì giải
+      nén full-resolution rồi co lại bằng CSS — đây là nguyên nhân chính gây OOM khi list dài dùng
+      `Image` gốc.
+    gate_focus: >-
+      Cho 1 ảnh gốc 4000x3000px hiển thị trong ô 50x50px — `Image` gốc của RN giải nén (decode) ảnh
+      ở độ phân giải nào vào bộ nhớ? `expo-image` khác gì?
+    description: >-
+      Thay `Image` (nếu có) bằng `Image` của `expo-image` cho `Avatar`/logo đội trong feed và
+      timeline, khai `contentFit` + kích thước cố định.
+    deliverable: "src/components/Avatar.tsx (đổi sang expo-image) + áp dụng ở feed/timeline"
+    depends_on: [TASK-11]
+
+# ============================================================================
+# QA — chạy thẳng, KHÔNG qua gate học (kiểm tra máy móc, không có khái niệm mới)
+# ============================================================================
+  - id: TASK-13
+    owner: QA
+    description: >-
+      Static analysis: `npx tsc --noEmit` sạch, `npm run lint` sạch → `static_analysis_passed`.
+    depends_on: [TASK-12]
+
+  - id: TASK-14
+    owner: QA
+    description: "Formatting: `npm run format:check` → `formatting_passed`."
+    depends_on: [TASK-12]
+
+  - id: TASK-15
+    owner: QA
+    description: >-
+      Convention audit → `convention_audit_passed`. Kiểm đủ:
+      (1) Route trong app/ không gọi fetch/axios trực tiếp, luôn qua hook trong src/features/*;
+      (2) Dữ liệu server (matches, events) chỉ nằm trong TanStack Query cache, không copy sang state cục bộ nào khác;
+      (3) Mọi WS event cập nhật cache bằng setQueryData, không có chỗ nào gọi invalidateQueries cho mỗi event realtime;
+      (4) Không hardcode URL/WS URL ngoài src/lib/env.ts;
+      (5) FlashList (không phải FlatList/ScrollView+map) cho mọi danh sách có thể dài (feed, timeline);
+      (6) tsconfig strict, không any/@ts-ignore mới.
+    depends_on: [TASK-13, TASK-14]
+
+  - id: TASK-16
+    owner: QA
+    description: >-
+      Kiểm thủ công trên Simulator: feed hiện trận đấu mẫu, skeleton lúc loading, pull-to-refresh
+      hoạt động; bấm vào 1 trận → match/[id] hiện ngay (prefetch), timeline render bằng FlashList;
+      tự bắn event WS giả → tỉ số cập nhật ở cả feed và detail không giật/không refetch toàn màn.
+      Viết `qa_report@v1.yaml`; chỉ set `release_ready: true` khi cả 3 boolean true và `bugs_found` rỗng.
+    depends_on: [TASK-15]

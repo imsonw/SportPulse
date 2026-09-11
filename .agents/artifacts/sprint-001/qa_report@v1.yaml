@@ -1,0 +1,48 @@
+static_analysis_passed: true
+formatting_passed: true
+convention_audit_passed: true
+bugs_found: []
+release_ready: true
+notes: >-
+  TASK-26 (static analysis): `npx tsc --noEmit` sạch, `npx eslint .` 0 lỗi/0 warning (đã sửa 1 import
+  thừa ở app/(tabs)/trivia.tsx trước khi chốt). Build native không chạy lại `expo run:ios` đầy đủ
+  trong QA này vì app đã được build + verify liên tục qua Dev Client trên Simulator trong suốt các
+  buổi học TASK-13 → TASK-24 (nhiều lần cold/warm start, deep link, không có lỗi build nào phát
+  sinh).
+
+  TASK-27 (formatting): `npm run format:check` ban đầu FAIL ở 5 file (README.md,
+  app/(tabs)/_layout.tsx, app/(tabs)/trivia.tsx, app/_layout.tsx, src/components/Avatar.tsx) — đã
+  chạy `npm run format` để tự sửa, re-check PASS.
+
+  TASK-28 (convention audit):
+  - Route trong app/ không chứa business logic/fetch trực tiếp: PASS (grep xác nhận không có fetch()
+    nào trong app/).
+  - Không hardcode URL/domain ngoài app.json + src/lib/env.ts: PASS (grep xác nhận).
+  - ios/, android/ không bị sửa tay: PASS (.gitignore có /ios và /android với comment "CNG artifacts
+    - strict rule: never commit generated native folders").
+  - tsconfig strict: true, không any/@ts-ignore mới: PASS (grep xác nhận).
+  - Cấu trúc thư mục khớp thiết kế (app/ | src/components | src/theme | src/lib): PASS.
+  - Không hardcode màu/spacing trong component: KHÔNG ĐẠT tuyệt đối — 3 file còn hardcode hex
+    (app/(tabs)/index.tsx, app/recap/[matchId].tsx, app/+not-found.tsx), viết từ trước khi
+    src/theme tồn tại (TASK-14/15/17, trước TASK-20). Đã trao đổi với người học: chấp nhận là nợ kỹ
+    thuật đã document trong README.md ("Vì sao một số quyết định trông chưa xong"), KHÔNG chặn
+    release_ready cho sprint học tập này — để dành dọn khi refactor các màn hình đó bằng component
+    src/components/ chính thức.
+
+  TASK-29 (kiểm thủ công acceptance criteria điều hướng, trên Simulator "iPhone 17 Pro"):
+  - 3 tab chuyển được, icon + label tiếng Việt hiện đúng: PASS (đã verify nhiều lần qua các buổi TASK-13→22).
+  - Card → match/[id] hiện đúng id: PASS (verify TASK-14, TASK-21 test).
+  - recap/[matchId] fullscreen, ẩn header + tab bar: PASS (verify qua deep link sportpulse://recap/123,
+    screenshot xác nhận không header/tab bar, safe area padding áp đúng — TASK-24).
+  - modal/quiz-room mở dạng modal, có style sheet-modal (bo góc, nền mờ phía sau): PASS (screenshot
+    xác nhận qua deep link sportpulse://modal/quiz-room). Cử chỉ VUỐT XUỐNG ĐỂ ĐÓNG không verify được
+    bằng simctl (không có API giả lập gesture) — cần người dùng tự xác nhận bằng tay trên Simulator/
+    thiết bị thật trước khi coi là đã kiểm chứng đầy đủ.
+  - Route sai rơi vào +not-found, có nút "Về trang chủ": PASS (verify qua deep link
+    sportpulse://khong-ton-tai). Cosmetic nhỏ: header title hiện thô "+not-found" thay vì tên đẹp hơn
+    (ví dụ "Không tìm thấy") — không chặn release, để dành nếu người học muốn custom sau.
+  - Deep link sportpulse://match/123 mở đúng màn ở cả cold start và warm start: PASS — đã kiểm chứng
+    thực nghiệm kỹ ở TASK-18, kể cả phát hiện race condition thật (URL bị lỡ nếu gọi quá sớm sau khi
+    app vừa lên foreground, không phải lỗi của app mà là giới hạn timing cần biết).
+
+  Không phát hiện bug chức năng chặn release. release_ready: true.

@@ -25,7 +25,9 @@ export default function TabsLayout() {
         name="leaderboard"
         options={{
           title: 'BXH',
-          tabBarIcon: ({ color, size }) => <Ionicons name="trophy-outline" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="trophy-outline" color={color} size={size} />
+          ),
         }}
       />
     </Tabs>

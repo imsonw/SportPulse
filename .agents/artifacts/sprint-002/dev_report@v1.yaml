@@ -1,0 +1,23 @@
+status: in_progress
+tasks_completed: []
+tasks_in_progress: []
+remaining_tasks:
+  - TASK-1
+  - TASK-2
+  - TASK-3
+  - TASK-4
+  - TASK-5
+  - TASK-6
+  - TASK-7
+  - TASK-8
+  - TASK-9
+  - TASK-10
+  - TASK-11
+  - TASK-12
+notes: >-
+  Sprint chạy theo learning_mode của sprint_plan@v1.yaml — mỗi task DEV (trừ TASK-11) là 1 buổi
+  học qua gate quiz bắt buộc (xem .agents/artifacts/learning/concept_log.yaml). Trọng tâm sprint:
+  chuyển mental model từ "quản state thủ công / Redux-Saga" sang "server state là cache tự động"
+  (TanStack Query) và "mutate cache trực tiếp" (queryClient.setQueryData) thay vì dispatch action —
+  đào sâu nhất ở TASK-9. Carry-over từ Sprint 1: nhắc lại phân biệt useMemo/React.memo khi tới
+  FlashList (TASK-5), vì đây mới là ngữ cảnh "list dài" thật sự cần memo (C-021 concept_log).

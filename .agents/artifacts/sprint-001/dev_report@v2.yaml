@@ -1,0 +1,60 @@
+status: completed
+tasks_completed:
+  - TASK-1
+  - TASK-2
+  - TASK-3
+  - TASK-4
+  - TASK-5
+  - TASK-6
+  - TASK-7
+  - TASK-8
+  - TASK-9
+  - TASK-10
+  - TASK-11
+  - TASK-12
+  - TASK-13
+  - TASK-14
+  - TASK-15
+  - TASK-16
+  - TASK-17
+  - TASK-18
+  - TASK-19
+  - TASK-20
+  - TASK-21
+  - TASK-22
+  - TASK-23
+  - TASK-24
+  - TASK-25
+tasks_in_progress: []
+remaining_tasks: []
+notes: >-
+  Sprint chạy theo learning_mode của sprint_plan@v2.yaml — mỗi task DEV (trừ TASK-22, TASK-25) là
+  1 buổi học qua gate quiz bắt buộc (xem .agents/artifacts/learning/concept_log.yaml cho gate/weak
+  points, .agents/artifacts/learning/knowledge_summary.md cho nội dung ôn tập). 24 buổi học hoàn
+  thành, phần lớn qua gate ngay lần đầu, một số retried sau khi giảng lại đúng điểm lệch (xem
+  concept_log để biết chi tiết từng buổi).
+
+  Kết quả bàn giao: project Expo SDK 57 + TypeScript strict chạy được qua Dev Client trên iOS
+  Simulator; toàn bộ cây route Sportainment hoạt động (3 tab, dynamic route, fullscreen recap,
+  modal quiz, not-found, deep linking đã tự kiểm chứng thực nghiệm, auth guard placeholder); design
+  system tối thiểu (token light/dark, 6 component tái dùng, env config, safe area). Xem README.md
+  cho hướng dẫn chạy và cấu trúc thư mục, và mục "Vì sao một số quyết định trông chưa xong" cho danh
+  sách việc cố ý để lại cho sprint sau.
+
+  Phát hiện đáng chú ý trong quá trình làm (không phải lý thuyết, xác minh thực tế trên Simulator):
+  - TASK-3: sprint_plan@v2 mô tả sai — SDK 55+ chạy New Architecture VÔ ĐIỀU KIỆN, field
+    `newArchEnabled` bị bỏ qua (đã xác nhận qua docs.expo.dev/v57.0.0). Không cần vá sprint_plan vì
+    lý thuyết JSI/Fabric/TurboModule vẫn đúng, chỉ khung "flag bật/tắt" lỗi thời.
+  - TASK-18: deep link race condition có thật, không chỉ lý thuyết phòng hờ — gọi `openurl` ngay
+    sau khi app vừa lên foreground khiến URL bị lỡ hoàn toàn, không có cơ chế retry mặc định.
+  - TASK-21: `router.navigate()` với route dynamic (`[id].tsx`) không "unwind" về instance cũ dù
+    href khớp chính xác — hành xử y hệt `push` trong mọi trường hợp đã test, khác với suy đoán ban
+    đầu từ docs.
+  - TASK-23: `app.json` có `userInterfaceStyle: "light"` (khoá app luôn sáng, vô hiệu hoá công sức
+    dark mode ở TASK-20) — người học tự phát hiện và sửa thành `"automatic"`.
+  - Sự cố hạ tầng không phải bug code: Metro bundler tắt hẳn giữa session (TASK-23), Fast Refresh
+    lỗi module khi thêm nhiều file cùng lúc (TASK-22) — cả hai xử lý bằng restart/reload đầy đủ.
+
+  Nợ kỹ thuật cố ý để lại (xem README): LoadingSkeleton chưa animation (Reanimated, Sprint 3), auth
+  guard là stub (Sprint 4), một số màu hardcode từ trước khi có src/theme chưa dọn, chưa có network
+  layer thật.

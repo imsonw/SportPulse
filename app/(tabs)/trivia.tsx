@@ -1,11 +1,10 @@
-import { Stack } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
 export default function TriviaScreen() {
   return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Trivia</Text>
-      </View>
+    <View style={styles.container}>
+      <Text style={styles.title}>Trivia</Text>
+    </View>
   );
 }
 

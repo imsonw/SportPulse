@@ -715,4 +715,361 @@ sánh Expo Router với các router file-based khác như Next.js):*
 > việc bạn tạo file lúc nào hay khai báo `Stack.Screen` theo thứ tự nào trong JSX — nó dựa hoàn toàn
 > vào cấu trúc/tên file, đúng tinh thần "file quyết định route" xuyên suốt Expo Router.
 
+## Buổi 18 — TASK-18: Deep Linking — vì sao Expo Router tự sinh linking config
+**Ngày:** 2026-09-09
+
+**Vấn đề:** Deep link cần một "bảng tra cứu" map URL (`sportpulse://match/123`) ra đúng màn hình +
+param. Ở React Navigation cũ, đây là object cấu hình tự viết tay, tự đồng bộ tay mỗi khi thêm/xoá
+màn — quên cập nhật là deep link im lặng không hoạt động.
+
+**Mental model:** Expo Router generate linking config TỰ ĐỘNG từ chính cây thư mục `app/` — URL
+pattern và route pattern vốn dĩ là MỘT. `scheme` trong `app.json` chỉ định tiền tố, phần sau khớp
+bằng đúng cơ chế đã học Buổi 10→17 (không phải hệ thống song song).
+
+**Đối chiếu cũ → mới:** React Navigation cũ: viết object `linking = { prefixes, config: { screens }}`
+truyền vào `NavigationContainer`, mỗi màn mới phải thêm dòng, dễ quên, không cảnh báo nếu thiếu.
+Expo Router: không có file/object linking để tự viết — suy ra lúc build từ cấu trúc file, thêm file
+mới = deep link route đó tự động hoạt động.
+
+**Bẫy — đã kiểm chứng THỰC NGHIỆM trên Simulator (không chỉ lý thuyết):**
+- Cold start (app bị kill hẳn) vs warm start (app đang chạy) là hai luồng khác nhau. Test bằng
+  `xcrun simctl openurl`:
+
+| Kịch bản | Kết quả thực tế |
+|---|---|
+| Warm, app đã ổn định ở foreground | ✅ Vào đúng `match/123` ngay |
+| Warm, gọi `openurl` NGAY SÁT lúc app vừa được đưa lên foreground (sau `simctl launch`) | ❌ Bị lỡ hoàn toàn — app vẫn ở Home, deep link không chạy |
+| Cold start thật (terminate hẳn → mở lại bằng link, đợi đủ JS load ~4s) | ✅ Vào thẳng `match/999`, không qua Home |
+
+- **Phát hiện quan trọng nhất buổi này:** race condition ở dòng 2 là CÓ THẬT, không chỉ là lý thuyết
+  phòng hờ — gọi URL quá sớm ngay sau khi app được đánh thức (trước khi Linking listener/Router kịp
+  sẵn sàng) khiến URL bị mất hẳn, không có hàng đợi/retry nào tự động xử lý lại.
+- Chỉ khai `scheme` trong `app.json` là chưa đủ — phải `expo prebuild` để ghi vào `Info.plist` thật
+  (đã xác nhận bằng `plutil`: build hiện tại có đúng `CFBundleURLSchemes: ["sportpulse", "com.sportpulse.app"]`).
+- Test deep link bằng `xcrun simctl openurl` hoàn toàn local, không cần server/publish gì — tương
+  đương việc gõ URL vào Safari trên Simulator.
+
+**Quyết định & vì sao:** Không sửa code gì trong buổi này — deliverable là XÁC MINH, không phải viết
+file. Phát hiện race condition (dòng 2 bảng trên) là input quan trọng cho TASK-19 (auth guard): nếu
+guard làm chậm quá trình khởi tạo, nguy cơ tương tự (mất/trễ xử lý URL ban đầu) có thể lặp lại ở tầng
+khác.
+
+**Câu hỏi phỏng vấn liên quan** *(câu hỏi khả dĩ — chủ đề "deep linking cold/warm start" hay gặp khi
+CV có kinh nghiệm Expo Router hoặc React Navigation):*
+
+> **Q: Sự khác biệt giữa xử lý deep link ở cold start và warm start là gì? Có rủi ro thực tế nào cần
+> lưu ý không?**
+> A: Warm start: app đang chạy nền, hệ điều hành gọi thẳng vào scene đang có sẵn, Router điều hướng
+> gần như ngay lập tức. Cold start: toàn bộ app phải khởi tạo lại (mount root layout, providers...)
+> trước khi Router có thể xử lý URL ban đầu. Rủi ro thực tế (đã tự kiểm chứng, không chỉ lý thuyết):
+> nếu URL đến quá sớm — ngay lúc app vừa được đánh thức nhưng Linking listener/Router chưa kịp sẵn
+> sàng — URL đó có thể bị mất hoàn toàn, không có cơ chế hàng đợi/retry mặc định nào cứu lại. Đây là
+> lý do code khởi tạo (auth check, splash) cần được viết cẩn thận, không chặn hoặc trì hoãn quá trình
+> Router tiêu thụ initial URL.
+
+## Buổi 19 — TASK-19: Auth guard — `<Redirect>` vs `useEffect` + navigate (race condition)
+**Ngày:** 2026-09-09
+
+**Vấn đề:** Cần chặn vào `(tabs)` khi chưa đăng nhập. Phản xạ quen thuộc: đọc session trong
+`useEffect`, chưa đăng nhập thì `router.push('/login')`. Cách này gây một cú nháy màn hình thấy
+được — `(tabs)` render ra TRƯỚC (dù chỉ 1 frame) rồi mới bị đẩy sang login.
+
+**Mental model:** `useEffect` chạy SAU khi render đã commit vào native tree (render → commit → effect).
+Nghĩa là `(tabs)` đã kịp VẼ THẬT SỰ lên màn hình trước khi effect kịp gọi `push`. `<Redirect>` là một
+COMPONENT — return nó ra ngay trong lượt render báo cho Router "đừng render nhánh này, render nhánh
+kia" — không có khoảnh khắc nào `(tabs)` thật sự xuất hiện rồi mới bị thay thế.
+
+**Đối chiếu cũ → mới:** React Navigation cũ: guard viết bằng
+`useEffect(() => { if (!user) navigation.replace('Login') }, [user])` — pattern phổ biến, coi là
+bình thường vì không có API "điều hướng qua render" dễ dùng. Expo Router: `<Redirect href="..." />`
+sinh ra riêng để giải quyết đúng lỗi nháy này.
+
+**Bẫy:**
+- **Miss dễ gặp nhất:** session đọc bất đồng bộ (SecureStore/AsyncStorage) có 3 trạng thái
+  `loading`/`authenticated`/`unauthenticated`, không phải 2. Nếu guard coi `loading` giống hệt
+  `unauthenticated`, mỗi lần mở app (kể cả đã đăng nhập từ trước) đều nháy về login rồi nháy lại vào
+  Home khi session load xong.
+- `<Redirect>` đặt trong `useEffect` hoặc callback (`onPress`) — mất tác dụng, vì phép màu "chặn
+  render" chỉ có khi nó được RETURN ra như JSX trong lượt render, không phải gọi như hàm imperative.
+- Nối với Buổi 18: nếu guard làm chậm quyết định render nhánh nào (query mạng chậm), initial URL từ
+  deep link có nguy cơ bị ảnh hưởng bởi race condition tương tự đã tự kiểm chứng.
+
+**Quyết định & vì sao:**
+- `useAuthStub()` giữ type 3 nhánh (`loading`/`authenticated`/`unauthenticated`) dù stub luôn trả
+  `authenticated` — để cấu trúc guard không phải sửa lại khi thay bằng auth thật ở Sprint 4/F-016.
+- `loading` → `return null` (không render `<Stack>`) — tối giản, tránh đúng lỗi nháy; có thể thay
+  bằng splash/skeleton thật là quyết định UI riêng (TASK-20/21), không bắt buộc cho khái niệm này.
+- `unauthenticated` → `<Redirect href="/login" />` — route `/login` chưa tồn tại (Sprint 4), nhánh
+  này thực tế chưa bao giờ chạy trong sprint này.
+- Định nghĩa `useAuthStub` ngay trong `_layout.tsx`, KHÔNG tạo `src/lib/` mới — vì `src/` chưa tồn
+  tại (bắt đầu TASK-20), tránh quyết định kiến trúc "lụi" ngoài phạm vi buổi học.
+- Đã verify trên Simulator: app vẫn boot bình thường vào tab Trực tiếp (stub trả `authenticated`
+  nên nhánh `<Stack>` chạy như cũ, không có regression).
+
+**Câu hỏi phỏng vấn liên quan** *(câu hỏi khả dĩ — chủ đề "auth guard flicker" hay gặp khi so sánh
+Expo Router với React Navigation cổ điển):*
+
+> **Q: Vì sao dùng `<Redirect>` trong Expo Router để làm auth guard tốt hơn `useEffect` +
+> `router.push`? Bẫy phổ biến nhất khi implement guard này là gì?**
+> A: `useEffect` chạy sau khi component đã render và commit xong, nên màn được bảo vệ (ví dụ
+> `(tabs)`) có thể đã kịp hiển thị trong một khoảnh khắc trước khi bị điều hướng đi — gây nháy màn
+> hình thấy được. `<Redirect>` là component, return ra ngay trong lượt render hiện tại nên không có
+> khoảnh khắc đó. Bẫy phổ biến nhất: session thường đọc bất đồng bộ, có trạng thái "đang tải" ở
+> giữa — nếu guard không phân biệt "đang tải" với "chưa đăng nhập", app sẽ nháy về màn login mỗi lần
+> mở dù người dùng đã đăng nhập từ trước, vì lúc mới mở app luôn ở trạng thái "đang tải" trước khi
+> biết kết quả thật.
+
+## Buổi 20 — TASK-20: Design token & dark mode — vì sao không hardcode màu
+**Ngày:** 2026-09-09
+
+**Vấn đề:** Đã tự tay hardcode `borderColor: '#ccc'`, `backgroundColor: '#000'` ở vài màn placeholder
+trước đó. Cứ tiếp tục vậy: đổi 1 màu chủ đạo phải grep khắp codebase; dark mode phải sửa từng
+component, dễ sót/lệch (chỗ `#ccc`, chỗ `#cccccc`, chỗ `lightgray`).
+
+**Mental model:** Token là lớp GIÁN TIẾP — component hỏi "màu VAI TRÒ gì" (`colors.border`) thay vì
+"màu là gì", giá trị thật nằm ở MỘT nơi. Đổi giao diện = đổi giá trị ở nguồn, mọi nơi dùng token tự
+cập nhật. Dark mode chỉ là "một bộ giá trị khác cho cùng bộ vai trò" — free nếu đã dùng token, đắt
+nếu hardcode (phải viết lại if/else màu ở từng component).
+
+**Đối chiếu cũ → mới:** UIKit cũ có sẵn semantic color (`UIColor.systemBackground`, `.label`) tự đổi
+theo light/dark — đây chính là token, do hệ điều hành cung cấp miễn phí. React Native thuần KHÔNG có
+cơ chế này sẵn — token là thứ BẠN phải tự thiết kế, không có sẵn như UIKit.
+
+**Bẫy:**
+- Tạo token xong nhưng vẫn lỡ hardcode 1 chỗ khác — bản thân việc có file token không tự xoá
+  hardcode cũ, phải tự đi sửa lại (refactor Button/Card ở buổi sau).
+- `useColorScheme()` trả về `'light' | 'dark' | null` — quên nhánh `null` (chưa xác định được, hay
+  gặp lúc khởi động rất sớm) dễ gây bug nếu logic phức tạp hơn một fallback đơn giản.
+- Đặt tên token theo GIÁ TRỊ (`blue500`) thay vì VAI TRÒ (`primary`) — mất hết ý nghĩa lớp gián
+  tiếp, đổi màu chủ đạo sang đỏ thì biến tên `blue500` giờ chứa giá trị đỏ, đọc code rất khó hiểu.
+- **Lỗi thật tự vấp phải khi viết:** định nghĩa `lightColors` bằng `as const` rồi lấy
+  `type ThemeColors = typeof lightColors` — mỗi field bị narrow thành literal type riêng của LIGHT
+  (`background: "#ffffff"` chứ không phải `string`), khiến `darkColors: ThemeColors = {...}` báo lỗi
+  vì `'#111111'` không gán được vào type `"#ffffff"`. Sửa bằng cách khai `interface ThemeColors` với
+  các field kiểu `string` tường minh, không dùng `as const`/`typeof` cho trường hợp có nhiều biến
+  thể (light/dark) cần cùng shape nhưng khác giá trị.
+
+**Quyết định & vì sao:**
+- `src/theme/colors.ts`: `interface ThemeColors` tường minh — thiếu/thừa key ở `darkColors` báo lỗi
+  TypeScript ngay lúc code, không phải runtime khi user bật dark mode mới lộ ra thiếu màu.
+- `useThemeColors()` hook: `scheme === 'dark' ? darkColors : lightColors` — gộp `'light'` và `null`
+  vào chung 1 nhánh fallback, tường minh thay vì tình cờ đúng.
+- `spacing.ts`/`radius.ts`/`typography.ts`: dùng `as const` (khác `colors.ts`) vì không cần nhiều
+  biến thể khớp shape — `as const` còn bắt buộc cho `typography.weight` vì RN yêu cầu `fontWeight`
+  là literal union (`'400'|'600'`...), không phải `string` chung chung.
+- `index.ts` gom export để dùng `from '@/theme'` gọn, tận dụng path alias đã cấu hình TASK-8.
+
+**Câu hỏi phỏng vấn liên quan** *(câu hỏi khả dĩ — chủ đề "design token/theming" hay gặp khi CV có
+React Native, đối chiếu với UIKit semantic color):*
+
+> **Q: Design token là gì, và vì sao có token thì hỗ trợ dark mode gần như miễn phí?**
+> A: Token là một lớp gián tiếp — thay vì hardcode giá trị màu/số trực tiếp trong component, bạn
+> tham chiếu tới một VAI TRÒ (`colors.background`, `spacing.md`), còn giá trị thật của vai trò đó
+> được định nghĩa tập trung ở một nơi. Dark mode chỉ là việc cung cấp một bộ giá trị KHÁC cho đúng
+> bộ vai trò đó (`darkColors` thay vì `lightColors`) — component không cần biết hay quan tâm đang ở
+> theme nào, nó luôn hỏi đúng một câu "màu border là gì" và nhận lại giá trị phù hợp. Nếu không có
+> token, mỗi component phải tự viết logic if/else theo theme, dễ sót và không nhất quán.
+
+## Buổi 21 — TASK-21: Chiến lược styling & variant API cho component
+**Ngày:** 2026-09-09
+
+**Vấn đề:** Nhiều cách viết style trong RN (`StyleSheet.create`, inline, NativeWind), mỗi cách
+trade-off khác nhau về performance/DX. Chọn sai từ đầu càng về sau càng tốn công đổi lại.
+
+**Mental model — 3 hướng:**
+| Cách | Ưu | Nhược |
+|---|---|---|
+| `StyleSheet.create` | Tách style khỏi JSX, dễ đọc, bắt lỗi type sớm | Lợi ích performance so với object thường đã giảm nhiều ở New Architecture |
+| Inline object | Viết nhanh, style ngay cạnh JSX | Object mới mỗi lần render — chỉ là vấn đề nếu phá vỡ `memo` |
+| NativeWind | Viết nhanh nhất, style ngay trong `className` | Cần babel plugin + build step riêng; token màu ở `tailwind.config.js` — nguồn riêng, phải tự đồng bộ với `src/theme/` |
+
+**Đối chiếu cũ → mới:** UIKit cũ: style qua code hoặc Storyboard, không có khái niệm class name kiểu
+CSS. RN thời Bridge cũ: `StyleSheet.create` gần như bắt buộc vì có tối ưu thật (style serialize 1
+lần, gửi qua Bridge bằng ID). New Architecture (JSI): lợi ích performance đó giảm đáng kể (không còn
+serialize qua Bridge) — nhưng `StyleSheet.create` vẫn có giá trị tổ chức code.
+
+**Bẫy:**
+- Tin "phải dùng `StyleSheet.create` vì luôn nhanh hơn" — đúng thời Bridge cũ, không còn tuyệt đối ở
+  New Architecture; vẫn có ích nhưng vì lý do khác (tổ chức code), không phải performance thuần.
+- Trộn cả 3 cách trong 1 dự án không nguyên tắc — khó đọc, khó tìm-thay.
+- **Miss thật của buổi này (2 câu bị đảo ngược):** tưởng tạo object style mới mỗi render LUÔN là vấn
+  đề — sai, object literal rất rẻ. Nó chỉ là vấn đề khi phá vỡ so sánh THAM CHIẾU của
+  `React.memo`/`useMemo`/`useCallback` (memo so `===`, object mới mỗi render → memo tưởng prop đổi
+  → không skip re-render được, dù nội dung giống hệt).
+- **Phụ lục — trade-off của chính `memo`/`useMemo`/`useCallback`** (giảng thêm vì người học chưa biết
+  3 API này): bản thân việc so sánh (shallow compare props, hay dependency array) KHÔNG miễn phí —
+  với component/tính toán rẻ, chi phí so sánh có khi đắt hơn re-render thẳng. Chỉ nên dùng khi: (1)
+  component con tốn kém để render, (2) nằm trong list dài (`FlatList` nhiều item — trường hợp kinh
+  điển nhất), (3) tính toán nặng thật sự trong `useMemo`, (4) hàm là dependency của `useEffect` khác
+  hoặc truyền cho con đã `memo`. KHÔNG nên memo mặc định mọi nơi — thêm phức tạp (bug kiểu stale
+  closure nếu sai dependency array) mà chưa chắc nhanh hơn.
+
+**Quyết định & vì sao (người học tự chọn, không phải Claude quyết định thay):**
+- Chọn `StyleSheet.create` cho phần TĨNH (radius, spacing, opacity) — lý do chọn: tách style khỏi
+  JSX, không cần cài thêm gì, khớp thẳng với `src/theme` đã có (không phải đồng bộ 2 nguồn token như
+  NativeWind).
+- Màu (`backgroundColor`, `borderColor`, phụ thuộc theme) **bắt buộc** ghép bằng mảng style động,
+  không đặt được trong `StyleSheet.create` tĩnh — vì đối tượng đó chạy 1 lần lúc module load, còn
+  màu chỉ biết được SAU KHI gọi hook `useThemeColors()` bên trong component.
+- Bổ sung token `onPrimary` vào `colors.ts` (thiếu vai trò màu chữ trên nền `primary`) — tránh phải
+  hardcode `'#ffffff'` ngay trong `Button`, đúng nguyên tắc Buổi 20.
+- `Button` KHÔNG dùng `React.memo` — component đơn giản, không nằm trong list dài, đúng kết luận
+  trade-off vừa bàn (memo ở đây tốn hơn lợi).
+- `disabled` gộp cả `disabled` VÀ `loading` prop — tránh gọi `onPress` chồng khi đang loading (bug
+  hành vi, không chỉ hiển thị).
+
+**Câu hỏi phỏng vấn liên quan** *(câu hỏi khả dĩ — chủ đề "React.memo/useMemo trade-off" hay gặp khi
+CV có React/React Native, đặc biệt khi so New Architecture với Bridge cũ):*
+
+> **Q: Object style/hàm bị tạo mới mỗi lần render có phải lúc nào cũng là vấn đề performance không?
+> Khi nào nó thực sự thành vấn đề?**
+> A: Không — tạo object/hàm mới mỗi lần render vốn dĩ rất rẻ về mặt tính toán (JS tạo object nhanh).
+> Nó chỉ trở thành vấn đề khi component đó được truyền cho một nơi đang dựa vào SO SÁNH THAM CHIẾU
+> để tối ưu — cụ thể là `React.memo` (so sánh props), hoặc dependency array của `useMemo`/`useEffect`/
+> `useCallback`. Reference mới mỗi lần khiến các cơ chế đó luôn thấy "đã đổi" dù giá trị y hệt, làm
+> vô hiệu hoá chính sự tối ưu mà bạn định dùng. Nếu component không nằm trong ngữ cảnh nào dùng memo,
+> việc tạo object mới hoàn toàn vô hại.
+
+## Buổi 22 — TASK-22: Lặp pattern (Card, Avatar, ScoreBadge, EmptyState, LoadingSkeleton)
+**Ngày:** 2026-09-09
+
+Không có khái niệm mới — 5 component viết đúng pattern đã học ở `Button` (Buổi 21): màu qua
+`useThemeColors()`, layout tĩnh qua `StyleSheet.create`, không `React.memo`. `LoadingSkeleton` cố ý
+chưa có shimmer (cần Reanimated, Sprint 3).
+
+**Ghi chú thực nghiệm đáng nhớ (không phải lý thuyết, gặp thật khi verify):** wiring nhiều component
+mới cùng lúc vào 1 màn hình rồi chờ Fast Refresh tự cập nhật có thể gặp lỗi
+`[Refresh] Expected to find the updated module` — Fast Refresh đôi khi không theo kịp khi nhiều
+file/import mới xuất hiện cùng lúc. Cách xử lý: `xcrun simctl terminate` rồi `launch` lại (reload đầy
+đủ) thay vì chờ hoặc bấm reload thường. Không phải bug của code, chỉ là giới hạn của Fast Refresh khi
+thay đổi quá nhiều trong 1 lần.
+
+## Buổi 23 — TASK-23: Cấu hình môi trường & KHÔNG có secret nào an toàn trong app client
+**Ngày:** 2026-09-09
+
+**Vấn đề:** Backend cần biết gọi API/WebSocket ở đâu, khác nhau dev/staging/production. Hardcode URL
+rải rác trong code là tệ nhất — đổi môi trường phải grep sửa từng file.
+
+**Mental model:** App client (kể cả native build) là FILE NHỊ PHÂN nằm trên máy người dùng, không
+phải server bạn kiểm soát runtime. Bất cứ gì nhúng lúc build (bundle JS, `Info.plist`) đều giải nén
+đọc lại được bởi bất kỳ ai có file `.ipa`/`.apk`. `app.json > extra` không phải "biến môi trường bí
+mật" — nó là cấu hình CÔNG KHAI đóng gói cùng app, tương đương in ra một file text đi kèm.
+
+**Đối chiếu cũ → mới:** Native iOS cũ hay nghĩ "Keychain giữ bí mật" hoặc "binary Swift khó đọc hơn
+JS" — cả hai sai cho việc giấu API key: Keychain bảo vệ dữ liệu NGƯỜI DÙNG nhập runtime (session
+token cá nhân), không phải hằng số tự nhúng lúc build; binary Swift vẫn decompile/strings-extract
+được. Bài học chung mọi nền tảng: secret thật (API key trả phí, private key ký request) không bao
+giờ nhúng vào client, phải nằm ở backend.
+
+**Bẫy:**
+- Tin "obfuscate JS là đủ an toàn" — obfuscate làm code khó ĐỌC hơn, không khó TRÍCH XUẤT hơn (string
+  constant vẫn nằm nguyên trong bundle).
+- Nhầm `EXPO_PUBLIC_*` là biến server-side — tiền tố `PUBLIC` đã cảnh báo đúng bản chất: công khai
+  trong bundle.
+- Bỏ qua validate lúc khởi động — thiếu `API_URL` sẽ crash mơ hồ ở `fetch(undefined)` sâu trong code,
+  khó debug hơn nhiều so với 1 lỗi rõ ràng ngay lúc mở app.
+
+**Quyết định & vì sao:**
+- `src/lib/env.ts`: validate + `throw` ngay ở top-level module (chạy lúc import/khởi động), không
+  đợi tới lúc gọi API mới lộ ra `undefined`.
+- `interface AppConfigExtra` với field optional — phản ánh đúng thực tế `Constants.expoConfig?.extra`
+  không được kiểm tra kiểu tại runtime, TypeScript không tự biết `app.json` đúng field hay không.
+- Không dùng zod — chỉ 2 field string đơn giản, `if (!value) throw` là đủ; cân nhắc zod nếu `extra`
+  phình to sau này.
+
+**Phát hiện phụ (ngoài concept buổi này, đáng ghi vì ảnh hưởng buổi trước):** `app.json` có
+`userInterfaceStyle: "light"` — khoá app luôn sáng, khiến công sức dark mode ở Buổi 20 không thực sự
+phát huy (hệ thống không bao giờ báo `'dark'` cho app). Đã báo cho người học, người học tự sửa thành
+`"automatic"` ngay trong buổi này.
+
+**Câu hỏi phỏng vấn liên quan** *(câu hỏi khả dĩ — chủ đề "secret management trong mobile app" hay
+gặp khi CV có kinh nghiệm React Native/mobile security):*
+
+> **Q: Có nên lưu API key/secret trong `app.json` hoặc biến môi trường nhúng vào bundle của app
+> mobile không? Vì sao?**
+> A: Không — bất kỳ thứ gì nhúng vào bundle lúc build (kể cả qua `app.json > extra`, hay biến
+> `EXPO_PUBLIC_*`) đều nằm trong file `.ipa`/`.apk` cuối cùng, và ai cũng có thể giải nén để đọc lại,
+> không cần hack server hay có quyền đặc biệt gì. Điều này đúng cho mọi nền tảng, kể cả code native
+> biên dịch (Swift/Kotlin) — decompile/strings-extract vẫn lấy được string constant. Secret thật sự
+> (API key trả phí, private key ký request) phải nằm ở backend; client chỉ gọi qua backend đó, backend
+> mới là nơi giữ và dùng secret.
+
+## Buổi 24 — TASK-24: Safe area & edge-to-edge — insets khác padding cố định
+**Ngày:** 2026-09-09
+
+**Vấn đề:** iPhone có notch/Dynamic Island (trên) và home indicator (dưới), khác nhau từng dòng máy.
+Hardcode `paddingTop: 44` chỉ đúng cho ĐÚNG 1 dòng máy, sai hết các máy khác.
+
+**Mental model:** Safe area insets là 4 con số (`top/bottom/left/right`) hệ điều hành tính THEO TỪNG
+MÁY, báo "vùng này bị che, đừng đặt nội dung quan trọng ở đó" — là DỮ LIỆU RUNTIME phải hỏi hệ điều
+hành, không phải padding thẩm mỹ tự chọn. `SafeAreaProvider` (đã có ở root từ Buổi 11) cung cấp dữ
+liệu; `SafeAreaView`/`useSafeAreaInsets` là 2 cách TIÊU THỤ khác nhau.
+
+**Đối chiếu cũ → mới:** UIKit cũ: `safeAreaLayoutGuide` tự động có sẵn trên mọi `UIViewController`,
+constraint vào đó gần như miễn phí. RN: KHÔNG tự động cho mọi view — phải chủ động dùng
+`react-native-safe-area-context` (thư viện, không built-in) và áp đúng chỗ; quên áp dụng không có
+cảnh báo gì, chỉ lặng lẽ đè lên notch.
+
+**Bẫy:**
+- `SafeAreaView` áp padding CẢ 4 CẠNH mặc định — tiện khi cần bảo vệ toàn màn, nhưng thừa padding
+  nếu chỉ cần 1 cạnh (ví dụ top đã có header lo rồi) → `useSafeAreaInsets()` linh hoạt hơn, áp đúng
+  cạnh cần vào style đã có, không thêm 1 lớp View bọc ngoài.
+- **Miss thật của buổi này — đánh giá NGƯỢC mức độ rủi ro:** tưởng "fullscreen" (không header, không
+  tab bar) là AN TOÀN HƠN nên khỏi cần lo — sai hoàn toàn, đó chính là màn RỦI RO CAO NHẤT vì không
+  có gì tự động chừa chỗ. Quy tắc đúng: **càng ít "chrome" tự động (header/tab bar), càng phải tự lo
+  nhiều cạnh hơn**, không phải ngược lại.
+- Nhầm cạnh cần bảo vệ: modal CÓ header thì TOP đã được lo tự động (header luôn tính safe area top),
+  cạnh thật sự thiếu là BOTTOM (không tab bar, modal không tự full-bleed dưới home indicator).
+- Bọc `SafeAreaView` lồng nhau nhiều lớp (cả layout cha và từng màn con) — cộng dồn padding sai.
+
+**Quyết định & vì sao:**
+- `app/recap/[matchId].tsx`: `useSafeAreaInsets()`, áp `paddingTop` + `paddingBottom` — không header,
+  không tab bar, rủi ro cả 2 cạnh.
+- `app/modal/quiz-room.tsx`: `useSafeAreaInsets()`, chỉ `paddingBottom` — header đã tự lo top.
+- KHÔNG sửa `(tabs)/*` (header+tab bar mặc định của Tabs tự lo cả 2 cạnh), `+not-found.tsx` và
+  `match/[id].tsx` (Stack screen bình thường có header mặc định lo top, nội dung căn giữa không chạm
+  cạnh bottom) — tránh áp safe area tràn lan khi không cần, đúng tinh thần "chỉ sửa đúng chỗ có
+  rủi ro thật".
+
+**Câu hỏi phỏng vấn liên quan** *(câu hỏi khả dĩ — chủ đề "safe area/edge-to-edge" hay gặp khi CV có
+React Native, đối chiếu UIKit `safeAreaLayoutGuide`):*
+
+> **Q: `SafeAreaView` và `useSafeAreaInsets` khác nhau ở đâu? Khi nào chỉ cần bảo vệ MỘT cạnh thay
+> vì cả bốn?**
+> A: `SafeAreaView` tự động thêm padding cho cả 4 cạnh và tạo thêm một View bọc ngoài — tiện cho màn
+> hình hoàn toàn không có chrome nào khác bảo vệ. `useSafeAreaInsets()` trả về 4 con số insets, để tự
+> quyết định áp cạnh nào vào style đã có — linh hoạt hơn khi một số cạnh đã được bảo vệ sẵn (ví dụ
+> header luôn tự tính an toàn cho cạnh top, nên chỉ cần tự thêm `paddingBottom` cho phần còn thiếu,
+> tránh cộng dồn padding thừa nếu dùng `SafeAreaView` cho cả 4 cạnh trong trường hợp đó).
+
+## Buổi 25 — TASK-25: Tổng kết Sprint 1
+**Ngày:** 2026-09-10
+
+Không phải buổi học — không gate. Sprint 1 hoàn thành 25/25 task DEV, 24 buổi học qua gate (xem
+`concept_log.yaml` cho chi tiết từng buổi, phần lớn qua ngay lần đầu, một số retried).
+
+**Người học tự viết (Module 1):**
+- "app.json là source of truth mọi config về native sẽ được sinh ra từ đây"
+- "turbomodule và Fabric gọi qua JSI"
+
+**Claude bổ sung:** ranh giới CNG là HÀNH VI (có sửa tay native hay không), không phải trạng thái
+filesystem (có `ios/` hay không); phát hiện thực tế ở TASK-3 rằng New Architecture chạy vô điều kiện
+từ SDK 55+ (sprint_plan mô tả sai khung "flag bật/tắt"); Dev Client vs Expo Go; Config Plugin; vòng
+đời prebuild. Module 2-4 người học chọn không tự viết thêm ở buổi này.
+
+**Bàn giao sprint** (chi tiết xem `README.md` và `dev_report@v2.yaml`): project Expo SDK 57 +
+TypeScript strict chạy qua Dev Client; toàn bộ cây route Sportainment hoạt động; design system tối
+thiểu (token, 6 component, env config, safe area). Nợ kỹ thuật cố ý để lại: `LoadingSkeleton` chưa
+animation, auth guard là stub, vài màu hardcode cũ chưa dọn, chưa có network layer thật.
+
+**3 phát hiện thực nghiệm đáng nhớ nhất của sprint** (không phải lý thuyết — tự kiểm chứng được):
+1. Deep link race condition có thật (TASK-18): gọi URL ngay sau khi app vừa lên foreground khiến
+   URL bị lỡ hoàn toàn.
+2. `router.navigate()` với route dynamic không "unwind" về instance cũ dù href khớp chính xác —
+   hành xử y hệt `push` (TASK-21), khác suy đoán ban đầu từ docs.
+3. `userInterfaceStyle: "light"` trong `app.json` âm thầm vô hiệu hoá công sức dark mode — phát hiện
+   nhờ đọc kỹ file cấu hình ở TASK-23, không phải nhờ test riêng cho dark mode.
+
+Sprint 2 sẽ chuyển sang network layer (TanStack Query), Zustand, và dữ liệu thật thay placeholder.
+
 

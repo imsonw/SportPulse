@@ -208,3 +208,126 @@ concepts:
     này).'
   files_written:
   - 'app/+not-found.tsx (nút "Về trang chủ" dùng router.replace(''/''))'
+- id: C-018
+  concept: "Deep Linking — vì sao Expo Router tự sinh linking config"
+  task: TASK-18
+  date: '2026-09-09'
+  gate: passed
+  weak_points:
+  - 'Câu 4 hơi chung chung ("có thể không mở được") — chấp nhận vì đúng hướng và chủ đề race condition
+    thật sự được đào sâu bằng thực nghiệm ngay trong buổi (xem finding dưới), không cần hỏi lại.'
+  files_written:
+  - 'Không sinh file mới. Kiểm chứng thực nghiệm trên Simulator (xcrun simctl openurl) qua 3 kịch bản:
+    (1) warm start ổn định — vào đúng match/123; (2) warm start gọi openurl NGAY SÁT lúc app vừa lên
+    foreground — bị lỡ, deep link không chạy, đúng race condition dự đoán ở bẫy #1 nhưng giờ có bằng
+    chứng thật; (3) cold start (terminate hẳn app, mở lại bằng link, đợi đủ JS load ~4s) — vào thẳng
+    match/999, không qua Home. Xác nhận scheme "sportpulse" + "com.sportpulse.app" đã đúng trong
+    Info.plist của build hiện tại (kiểm bằng plutil).'
+- id: C-019
+  concept: "Auth guard — <Redirect> vs useEffect + navigate (race condition)"
+  task: TASK-19
+  date: '2026-09-09'
+  gate: passed
+  weak_points:
+  - 'Câu 2: trả lời đúng kết luận ("có nháy") nhưng thiếu giải thích cơ chế cụ thể (render/commit xảy
+    ra trước useEffect). Bù lại đủ ở câu 3 (Redirect phải RETURN ra như JSX, xảy ra trong render, còn
+    useEffect chạy sau). Không cần hỏi lại vì hiểu biết đã thể hiện đủ qua tổng 2 câu.'
+  files_written:
+  - 'app/_layout.tsx (thêm useAuthStub() 3 trạng thái loading/authenticated/unauthenticated, guard
+    early-return null/<Redirect>/<Stack>; xác minh trên Simulator app vẫn boot bình thường)'
+- id: C-020
+  concept: "Design token & dark mode — vì sao không hardcode màu"
+  task: TASK-20
+  date: '2026-09-09'
+  gate: passed
+  weak_points: []
+  files_written:
+  - 'src/theme/colors.ts (interface ThemeColors tường minh — tự vấp lỗi as const+typeof làm literal
+    type light khiến darkColors không gán được, đã sửa và ghi comment lại)'
+  - 'src/theme/useThemeColors.ts (hook đọc useColorScheme, fallback null về light)'
+  - 'src/theme/spacing.ts, radius.ts, typography.ts (as const, thang đo đặt tên theo bậc)'
+  - 'src/theme/index.ts (barrel export)'
+- id: C-021
+  concept: "Chiến lược styling (StyleSheet vs inline vs NativeWind) & variant API cho component"
+  task: TASK-21
+  date: '2026-09-09'
+  gate: retried
+  weak_points:
+  - 'Câu 1+2 (đảo ngược nhau): nói object style tạo mới mỗi render LUÔN là vấn đề (kể cả không có
+    memo) — sai, object literal rất rẻ, chỉ có vấn đề khi phá vỡ so sánh tham chiếu của memo/useMemo/
+    useCallback. Đồng thời tự nhận "chưa hiểu React.memo/useMemo/useCallback" — đã giảng thẳng (không
+    Socratic, theo đúng luật khi bí sau 2-3 lần hỏi) kèm ví dụ code cụ thể cho cả 3 API, sau đó hỏi
+    lại 1 câu (ScoreBadge cần bọc dynamicStyle bằng gì) — trả lời đúng "useMemo". Đây là gap về React
+    core (không riêng Expo), nên nhắc lại nếu buổi sau đụng list dài (FlatList item memoization).'
+  files_written:
+  - 'src/theme/colors.ts (bổ sung field onPrimary — thiếu vai trò màu chữ trên nền primary)'
+  - 'src/components/Button.tsx (variant primary/ghost, state loading/disabled; StyleSheet.create cho
+    tĩnh, mảng style động cho màu theo theme — người học tự chọn StyleSheet qua AskUserQuestion)'
+  - 'Verify tạm trên Simulator (4 Button test trong (tabs)/index.tsx, đã dọn sau khi xác nhận render đúng)'
+- id: C-022
+  concept: "(Lặp pattern — không có khái niệm mới, phá lệ #2 của skill học tập)"
+  task: TASK-22
+  date: '2026-09-09'
+  gate: passed
+  weak_points: []
+  files_written:
+  - 'src/components/Card.tsx (dùng ViewProps có sẵn của RN + ...rest)'
+  - 'src/components/Avatar.tsx (fallback initials khi không có uri, dùng cặp token primary/onPrimary)'
+  - 'src/components/ScoreBadge.tsx (isLive render điều kiện, không ẩn bằng opacity)'
+  - 'src/components/EmptyState.tsx'
+  - 'src/components/LoadingSkeleton.tsx (khối tĩnh, chưa có shimmer — animation để dành Sprint 3/Reanimated)'
+  - 'Verify tạm trên Simulator (wiring cả 5 component vào (tabs)/index.tsx, gặp lỗi Fast Refresh
+    "[Refresh] Expected to find the updated module" — phải terminate+relaunch app thay vì chờ fast
+    refresh; sau đó render đúng cả 5, đã dọn code test)'
+- id: C-023
+  concept: "Cấu hình môi trường & sự thật phũ phàng: KHÔNG có secret nào an toàn trong app client"
+  task: TASK-23
+  date: '2026-09-09'
+  gate: passed
+  weak_points: []
+  files_written:
+  - 'package.json (thêm expo-constants làm direct dependency, --legacy-peer-deps do xung đột peer
+    react/react-dom có sẵn từ @expo/ui, không liên quan gói mới)'
+  - 'app.json (thêm extra.apiUrl/wsUrl — chỉ config công khai, không secret)'
+  - 'src/lib/env.ts (đọc + validate qua expo-constants, throw rõ ràng lúc import nếu thiếu field)'
+  - 'Phát hiện phụ (không thuộc concept buổi này): app.json có userInterfaceStyle: "light" — khoá
+    app luôn sáng, làm useThemeColors() (TASK-20) không thực sự nhận dark mode từ hệ thống. Đã báo
+    cho người học, người học tự sửa thành "automatic" ngay trong buổi.'
+  - 'Sự cố ngoài ý muốn: Metro bundler đã tắt hẳn giữa session (không phải do env.ts) — phải khởi
+    động lại (npx expo start --dev-client) và deep-link thủ công vào dev client
+    (sportpulse://expo-development-client/?url=...) để verify app load không throw.'
+- id: C-024
+  concept: "Safe area & edge-to-edge — insets khác padding cố định"
+  task: TASK-24
+  date: '2026-09-09'
+  gate: retried
+  weak_points:
+  - 'Câu 1+2: đánh giá ngược mức độ rủi ro — nghĩ "fullscreen" (recap) là an toàn hơn nên không cần
+    safe area (sai, ngược lại, không header/tab bar = rủi ro CAO nhất); và nghĩ quiz-room (có header)
+    còn thiếu bảo vệ cạnh TOP (sai, header đã tự lo top, cạnh thiếu là BOTTOM vì modal không có tab
+    bar). Đã giảng lại quy tắc "càng ít chrome tự động, càng phải tự lo nhiều cạnh hơn" và hỏi lại
+    (recap cần cạnh nào) — trả lời đúng "top và bottom" ở lần 2.'
+  files_written:
+  - 'app/recap/[matchId].tsx (useSafeAreaInsets, paddingTop+paddingBottom — không header không tab bar)'
+  - 'app/modal/quiz-room.tsx (useSafeAreaInsets, chỉ paddingBottom — header đã tự lo top)'
+  - 'Không sửa (tabs)/*, +not-found.tsx, match/[id].tsx — đã có header/tab bar mặc định lo đủ, hoặc
+    nội dung căn giữa không chạm cạnh; xác nhận qua deep link sportpulse://recap/123 trên Simulator'
+- id: C-025
+  concept: "(Tổng kết sprint — không phải buổi học, không gate)"
+  task: TASK-25
+  date: '2026-09-10'
+  gate: passed
+  weak_points: []
+  files_written:
+  - 'README.md (cấu trúc thư mục, convention feature-first, cách chạy Dev Client, mục nợ kỹ thuật
+    cố ý để lại)'
+  - '.agents/artifacts/sprint-001/dev_report@v2.yaml (status: completed, 25/25 task DEV, tổng hợp
+    phát hiện thực nghiệm đáng chú ý của cả sprint)'
+  - '.agents/artifacts/learning/concept_log.yaml (entry này, C-001 → C-025)'
+  self_summary: >-
+    Người học tự viết (không phải Claude viết thay): "app.json là source of truth mọi config về
+    native sẽ được sinh ra từ đây" (Module 1) và "turbomodule và Fabric gọi qua JSI" (Module 1).
+    Claude bổ sung các phần còn thiếu của Module 1 (ranh giới CNG là hành vi không phải filesystem,
+    phát hiện New Arch vô điều kiện ở TASK-3, Dev Client vs Expo Go, Config Plugin, vòng đời
+    prebuild) và tóm tắt Module 2-4 do người học chọn dừng ở mức tự viết 2 gạch đầu dòng cho
+    Module 1, không viết thêm cho Module 2-4.

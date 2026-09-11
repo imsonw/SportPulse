@@ -68,7 +68,7 @@ sprints:
     goal: >-
       Dựng nền tảng Expo + TypeScript + Expo Router: khung navigation 3 tab, dynamic route,
       modal, dev-client build được trên iOS Simulator.
-    status: pending
+    status: completed
     features:
       - id: F-001
         title: Khởi tạo dự án Expo + TypeScript strict
@@ -96,7 +96,7 @@ sprints:
     goal: >-
       Live Scores hoạt động end-to-end: fetch + cache bằng TanStack Query, render bằng FlashList,
       cập nhật tỉ số realtime qua WebSocket bằng cách mutate cache thay vì refetch.
-    status: pending
+    status: in_progress
     features:
       - id: F-005
         title: Mock API + domain types cho matches
