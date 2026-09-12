@@ -7,6 +7,7 @@ import { LoadingSkeleton } from '@/components/LoadingSkeleton';
 import { ScoreBadge } from '@/components/ScoreBadge';
 import { useMatches } from '@/features/matches/hooks';
 import { Match } from '@/features/matches/types';
+import { wsClient } from '@/lib/ws-client';
 import { spacing, typography, useThemeColors } from '@/theme';
 
 export default function LiveScreen() {
@@ -84,6 +85,22 @@ export default function LiveScreen() {
         }
         contentContainerStyle={styles.listPadding}
       />
+      {/* TEST TẠM THỜI — bắn event WS giả để verify setQueryData, xoá sau khi kiểm chứng */}
+      <Pressable
+        style={styles.testButton}
+        onPress={() =>
+          wsClient.emitMockEvent({
+            id: `test-${Date.now()}`,
+            matchId: 'm1',
+            minute: 70,
+            type: 'GOAL',
+            teamId: 't1',
+            scorer: 'TEST',
+          })
+        }
+      >
+        <Text style={styles.testButtonText}>[TEST] Bắn GOAL cho m1/t1 (Arsenal)</Text>
+      </Pressable>
     </View>
   );
 }
@@ -129,5 +146,17 @@ const styles = StyleSheet.create({
     fontSize: typography.size.md,
     textAlign: 'center',
     marginTop: spacing.xl,
+  },
+  // TEST TẠM THỜI — xoá cùng lúc với nút ở trên
+  testButton: {
+    borderWidth: 1,
+    borderColor: 'orange',
+    borderRadius: 8,
+    padding: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  testButtonText: {
+    color: 'orange',
+    textAlign: 'center',
   },
 });

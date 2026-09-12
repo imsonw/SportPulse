@@ -3,6 +3,7 @@ import { Redirect, Stack } from 'expo-router';
 import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useLiveScoreSync } from '@/features/matches/useLiveScoreSync';
 import { useAppStateSync } from '@/lib/useAppStateSync';
 
 // Khởi tạo QueryClient KHỎI bộ nhớ React Component.
@@ -27,6 +28,29 @@ type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
 // sửa lại cấu trúc khi thay stub bằng hook thật — chỉ thay nội dung hàm này.
 function useAuthStub(): { status: AuthStatus } {
   return { status: 'authenticated' };
+}
+
+// Tách riêng khỏi RootLayout vì useLiveScoreSync() gọi useQueryClient() bên trong — hook đó BẮT
+// BUỘC chạy trong 1 component CON của QueryClientProvider (theo React Context), không phải component
+// tạo ra Provider đó. RootLayout không đủ điều kiện; component này thì có (được render bên trong).
+function AppNavigator() {
+  useLiveScoreSync();
+
+  return (
+    <Stack>
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      {/* Ẩn header cho recap: tab bar tự động không có vì route này nằm ngoài (tabs) —
+          không cần cấu hình gì thêm cho việc đó */}
+      <Stack.Screen name="recap/[matchId]" options={{ headerShown: false }} />
+      {/* presentation: 'modal' (không phải fullScreenModal) — cho vuốt xuống đóng mặc định,
+          đúng yêu cầu acceptance criteria F-002. Chưa chặn vuốt xuống lúc đang làm quiz dở,
+          việc đó thuộc Sprint 3 */}
+      <Stack.Screen
+        name="modal/quiz-room"
+        options={{ presentation: 'modal', title: 'Phòng chờ Quiz' }}
+      />
+    </Stack>
+  );
 }
 
 export default function RootLayout() {
@@ -55,19 +79,7 @@ export default function RootLayout() {
       <SafeAreaProvider>
         {/* 3. QueryClientProvider cung cấp bộ nhớ cache toàn cục cho mọi hook useQuery/useMutation */}
         <QueryClientProvider client={queryClient}>
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            {/* Ẩn header cho recap: tab bar tự động không có vì route này nằm ngoài (tabs) —
-                không cần cấu hình gì thêm cho việc đó */}
-            <Stack.Screen name="recap/[matchId]" options={{ headerShown: false }} />
-            {/* presentation: 'modal' (không phải fullScreenModal) — cho vuốt xuống đóng mặc định,
-                đúng yêu cầu acceptance criteria F-002. Chưa chặn vuốt xuống lúc đang làm quiz dở,
-                việc đó thuộc Sprint 3 */}
-            <Stack.Screen
-              name="modal/quiz-room"
-              options={{ presentation: 'modal', title: 'Phòng chờ Quiz' }}
-            />
-          </Stack>
+          <AppNavigator />
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
