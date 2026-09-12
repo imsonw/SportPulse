@@ -1,0 +1,48 @@
+static_analysis_passed: true
+formatting_passed: true
+convention_audit_passed: true
+bugs_found: []
+release_ready: false
+notes: >-
+  TASK-13 (static analysis): `npx tsc --noEmit` sạch, `npm run lint` (expo lint) 0 lỗi/0 warning.
+
+  TASK-14 (formatting): `npm run format:check` ban đầu FAIL ở 6 file (app/match/[id].tsx, README.md,
+  src/features/matches/api.ts, src/features/matches/hooks.ts, src/lib/useAppStateSync.ts,
+  src/lib/ws-client.ts) — đã chạy `prettier --write` để sửa, re-check PASS.
+
+  TASK-15 (convention audit) — 6/6 tiêu chí PASS, kiểm bằng agent riêng, bằng chứng cụ thể:
+  - Route không gọi fetch/axios trực tiếp: PASS (grep app/ không có fetch()/axios, chỉ gọi qua
+    useMatches()/useMatchDetail() ở src/features/matches/hooks.ts).
+  - Server state chỉ nằm trong TanStack cache, không copy sang useState/useReducer: PASS (grep app/
+    và src/features/matches/ không có useState/useReducer nào quản matches/events).
+  - WS event cập nhật bằng setQueryData, không invalidateQueries mỗi event: PASS
+    (useLiveScoreSync.ts gọi setQueryData 2 lần/event qua applyEventToMatch, không có
+    invalidateQueries nào trong code chạy).
+  - Không hardcode API/WS URL ngoài src/lib/env.ts: PASS (ws-client.ts dùng WS_URL từ env.ts; các
+    URL https://media.api-sports.io/... trong api.ts là URL ảnh logo đội trong MOCK data, không phải
+    endpoint server, không thuộc phạm vi tiêu chí này).
+  - FlashList cho mọi list dài: PASS (feed và timeline đều dùng @shopify/flash-list, không có
+    FlatList/ScrollView+map nào).
+  - tsconfig strict, không any/@ts-ignore mới: PASS (strict: true, grep không có any/@ts-ignore mới;
+    dùng discriminated union + exhaustiveness check `never` thay vì any).
+
+  Ghi chú phụ (không tính vào 6 tiêu chí, không chặn convention_audit_passed):
+  - Nút "[TEST] Bắn GOAL cho m1/t1" trong app/(tabs)/index.tsx (dùng wsClient.emitMockEvent để verify
+    setQueryData không cần WS server thật) vẫn còn trong code — hardcode matchId 'm1'/teamId 't1'
+    khớp đúng mock hiện tại, nhưng nếu mock đổi ID sẽ silently no-op (setQueryData trên object không
+    khớp id nào trong list thì không có gì xảy ra, không lỗi). Cần dọn trước khi coi sprint hoàn
+    thiện — đã báo cho người học, CHƯA dọn theo yêu cầu.
+
+  TASK-16 (kiểm thủ công trên Simulator): CHƯA THỰC HIỆN. Người học chủ động chọn bỏ qua bước này ở
+  vòng QA này (chỉ dựa vào static analysis + convention audit), không phải do quên hay sự cố kỹ
+  thuật. Các acceptance criteria cần verify bằng tay còn treo:
+  - Feed hiện 3 trận mock, skeleton lúc loading, pull-to-refresh không đè skeleton lên list.
+  - Bấm card → match/[id] hiện ngay không loading (do setQueryData prefetch), timeline render đúng
+    bằng FlashList, avatar đội tải qua expo-image không giật.
+  - Bắn WS event giả (nút [TEST]) → tỉ số cập nhật đồng thời ở cả feed và detail, không giật/không
+    refetch toàn màn.
+
+  Vì manual_check chưa chạy, release_ready = false theo đúng luật sprint plan (chỉ true khi cả 3
+  boolean true VÀ bugs_found rỗng — ở đây thiếu hẳn 1 boolean thứ 4 là manual verify, sprint plan
+  gốc coi đây là điều kiện bắt buộc trước khi release dù không có tên field riêng). Khi người học
+  sẵn sàng test tay trên Simulator, chạy lại TASK-16 và cập nhật report này.

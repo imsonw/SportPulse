@@ -1251,6 +1251,61 @@ app" hay gặp khi CV có WebSocket/real-time feature):*
 > trước, app có thể rơi vào trạng thái "tưởng đang kết nối" nhưng socket đã chết, gây lỗi âm thầm khi
 > mở lại. Chủ động đóng khi `background`, mở lại khi `active` giải quyết cả hai vấn đề.
 
+## Buổi 34 — TASK-9: queryClient.setQueryData — mutate cache trực tiếp, đối chiếu dispatch action Redux-Saga
+**Ngày:** 2026-09-12 *(log bổ sung — buổi học/code thực tế diễn ra ở session trước, gate đã qua
+nhưng bị bỏ sót bước ghi log; nội dung dưới đây tái dựng lại từ code đã commit, không phải quiz mới)*
+
+**Vấn đề:** Có WS event (GOAL/CARD/STATUS_CHANGE) bắn tới, cần cập nhật đúng 1 trận ở cả feed (list)
+và màn chi tiết (detail) — mà không refetch toàn bộ (gây giật, tốn network) và không cần Redux
+store/reducer/action để lưu "state chung nhiều màn cùng đọc".
+
+**Mental model:** `queryClient.setQueryData(queryKey, updaterFn)` ghi thẳng vào đúng 1 entry cache
+theo `queryKey`. `updaterFn` nhận state cũ, trả state MỚI (immutable) — đây chính là vai trò
+"reducer" nhưng không qua action/dispatch/middleware nào, không có Redux store ở giữa.
+
+**Đối chiếu cũ → mới:** Redux-Saga cũ: WS event → dispatch action → reducer nhận action, tính state
+mới → mọi component `useSelector` subscribe store tự re-render. TanStack Query: WS event → gọi thẳng
+`setQueryData(key, fn)` → chỉ component nào `useQuery` đúng `key` đó mới re-render. Không có
+action/store/middleware — cache CHÍNH LÀ state, `queryKey` đóng vai trò "địa chỉ" thay cho
+`selector`.
+
+**Bẫy:**
+- Tưởng cập nhật 1 cache (vd list) thì cache khác (detail) tự đồng bộ theo — SAI, mỗi `queryKey` là
+  1 entry độc lập, phải tự `setQueryData` riêng cho từng key liên quan (đây là bẫy cốt lõi buổi
+  này).
+- Sửa trực tiếp (mutate) object cache cũ thay vì trả object mới — React Query so sánh reference,
+  sửa tại chỗ có thể không trigger re-render đúng cách.
+- Dùng `invalidateQueries` cho mỗi event realtime — đúng nhưng lãng phí: trigger refetch toàn bộ
+  network, không tận dụng được việc mình đã biết chính xác cái gì thay đổi.
+- Quên xử lý case cache chưa tồn tại (`oldMatch`/`oldMatches` là `undefined` — chưa từng mở màn đó)
+  — updater phải trả về đúng giá trị cũ (`undefined`/`oldMatch`) thay vì crash khi cố spread vào
+  `undefined`.
+
+**Quyết định & vì sao:**
+- `applyEventToMatch` tách thành hàm thuần dùng chung cho cả 2 lần `setQueryData` (list + detail) —
+  tránh lặp logic tính điểm/card/status ở 2 chỗ.
+- `switch` có nhánh `default` với `_exhaustiveCheck: never` — tận dụng lại discriminated union đã
+  học TASK-1 Sprint 2: nếu sau này thêm biến thể `MatchEvent` mới mà quên xử lý, TypeScript báo lỗi
+  ngay lúc code thay vì runtime.
+- `useLiveScoreSync()` gọi `useQueryClient()` nên BẮT BUỘC chạy trong component con của
+  `QueryClientProvider` — `app/_layout.tsx` tách riêng `AppNavigator` (component con) để gọi hook
+  này, vì `RootLayout` (component tạo ra Provider) không đủ điều kiện.
+
+**Việc còn để lại (phát hiện khi review lại, chưa phải nợ kỹ thuật có chủ đích):**
+- Nút `[TEST] Bắn GOAL cho m1/t1` trong `app/(tabs)/index.tsx` vẫn còn trong code đã commit lên
+  main (comment tự nhận "TẠM THỜI — xoá sau khi kiểm chứng" nhưng chưa xoá). Cần dọn trước khi
+  TASK-9 coi là hoàn thiện — đây là việc thuần cơ học (xoá code test), không phải khái niệm mới.
+
+**Câu hỏi phỏng vấn liên quan:**
+
+> **Q: Khi nhận một event realtime (ví dụ ghi bàn) cần cập nhật UI ở nhiều nơi cùng lúc, bạn xử lý
+> thế nào với TanStack Query mà không dùng Redux?**
+> A: Gọi `queryClient.setQueryData(queryKey, updaterFn)` riêng cho từng `queryKey` bị ảnh hưởng (ví
+> dụ cả danh sách và chi tiết của cùng 1 bản ghi). `updaterFn` là hàm thuần nhận state cũ trả state
+> mới (immutable), đóng đúng vai trò một reducer nhưng không cần action/store/middleware — vì cache
+> của React Query tự thân đã là nguồn state, component nào `useQuery` đúng key đó sẽ tự re-render.
+> Cách này tránh phải `invalidateQueries`/refetch toàn bộ cho mỗi event, giữ UI mượt.
+
 
 
 

@@ -1,4 +1,4 @@
- import { useEffect } from 'react';
+import { useEffect } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import { wsClient } from './ws-client';
 

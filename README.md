@@ -25,12 +25,12 @@ rồi mở lại app đã cài trên Simulator (tự kết nối lại Metro).
 
 ### Khi nào cần lệnh nào
 
-| Tình huống | Lệnh |
-| --- | --- |
-| Thêm/xoá thư viện JS thuần (vd. `@tanstack/react-query`, `@shopify/flash-list`) | `npm install` — KHÔNG cần prebuild/build lại |
-| Thêm thư viện có code native, hoặc đổi `app.json` (scheme, permission, plugin) | `npx expo prebuild --clean` rồi `npx expo run:ios` |
-| Lỗi "module không tồn tại"/"unable to resolve module" | Gần như luôn là thiếu `npm install`, không phải lỗi code |
-| Metro báo lỗi lạ không rõ nguyên nhân | `npx expo start --dev-client --clear` (xoá cache Metro) trước khi nghi code |
+| Tình huống                                                                      | Lệnh                                                                        |
+| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Thêm/xoá thư viện JS thuần (vd. `@tanstack/react-query`, `@shopify/flash-list`) | `npm install` — KHÔNG cần prebuild/build lại                                |
+| Thêm thư viện có code native, hoặc đổi `app.json` (scheme, permission, plugin)  | `npx expo prebuild --clean` rồi `npx expo run:ios`                          |
+| Lỗi "module không tồn tại"/"unable to resolve module"                           | Gần như luôn là thiếu `npm install`, không phải lỗi code                    |
+| Metro báo lỗi lạ không rõ nguyên nhân                                           | `npx expo start --dev-client --clear` (xoá cache Metro) trước khi nghi code |
 
 **Luôn dùng `npm`, không dùng `yarn`** — dự án có `package-lock.json`; trộn 2 package manager dễ làm
 lệch cây dependency giữa các máy/session khác nhau. Sửa `package.json` (kể cả do pull code người

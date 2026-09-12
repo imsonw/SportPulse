@@ -413,6 +413,25 @@ concepts:
     chưa từng `npm install` trên máy này — sửa package.json không tự cài gói. Đã `npm install` (dùng
     npm, không dùng yarn — dự án có package-lock.json), restart Metro với --clear, verify app boot
     được với dữ liệu mock qua FlashList. Đã ghi thành mục "Khi nào cần lệnh nào" vào README.md.
+- id: C-034
+  concept: "queryClient.setQueryData — mutate cache trực tiếp, đối chiếu dispatch action Redux-Saga"
+  task: TASK-9
+  date: '2026-09-12'
+  gate: passed
+  weak_points: []
+  files_written:
+  - 'src/features/matches/useLiveScoreSync.ts (applyEventToMatch — hàm thuần đóng vai "reducer",
+    setQueryData cho cả matchKeys.detail(id) và matchKeys.lists())'
+  - 'app/_layout.tsx (tách AppNavigator làm component con của QueryClientProvider để gọi
+    useLiveScoreSync(), vì useQueryClient() bắt buộc chạy trong cây con của Provider)'
+  - '"app/(tabs)/index.tsx" (nút [TEST] bắn event GOAL giả qua wsClient.emitMockEvent — dùng để
+    kiểm chứng setQueryData không giật/không refetch toàn màn, ĐÃ ĐÁNH DẤU tạm thời, chưa dọn)'
+  notes: >-
+    Buổi này diễn ra ở session trước, đã qua gate quiz nhưng bị bỏ sót bước ghi log (đúng rủi ro
+    skill này cảnh báo). Bổ sung log ngày 2026-09-12 dựa trên đọc lại code đã commit
+    (0e6e5dc), không phải quiz lại. Phát hiện khi review: nút [TEST] trong "(tabs)/index.tsx" vẫn
+    còn nằm trong code đã commit lên main — cần dọn trước khi coi TASK-9 thực sự "xong", xem
+    knowledge_summary.md Buổi 34 mục "Việc còn để lại".
 
 
 

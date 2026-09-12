@@ -1,4 +1,4 @@
-status: in_progress
+status: completed
 tasks_completed:
   - TASK-1
   - TASK-2
@@ -8,16 +8,54 @@ tasks_completed:
   - TASK-6
   - TASK-7
   - TASK-8
-tasks_in_progress: []
-remaining_tasks:
   - TASK-9
   - TASK-10
   - TASK-11
   - TASK-12
+  - TASK-13
+  - TASK-14
+  - TASK-15
+  - TASK-16 (skipped_by_decision — xem ghi chú)
+tasks_in_progress: []
+remaining_tasks: []
 notes: >-
-  Sprint chạy theo learning_mode của sprint_plan@v1.yaml — mỗi task DEV (trừ TASK-11) là 1 buổi
-  học qua gate quiz bắt buộc (xem .agents/artifacts/learning/concept_log.yaml). Trọng tâm sprint:
-  chuyển mental model từ "quản state thủ công / Redux-Saga" sang "server state là cache tự động"
-  (TanStack Query) và "mutate cache trực tiếp" (queryClient.setQueryData) thay vì dispatch action —
-  đào sâu nhất ở TASK-9. Carry-over từ Sprint 1: nhắc lại phân biệt useMemo/React.memo khi tới
-  FlashList (TASK-5), vì đây mới là ngữ cảnh "list dài" thật sự cần memo (C-021 concept_log).
+  Sprint chạy theo learning_mode của sprint_plan@v1.yaml — mỗi task DEV (trừ TASK-11, lặp pattern
+  FlashList không có khái niệm mới) là 1 buổi học qua gate quiz bắt buộc (xem
+  .agents/artifacts/learning/concept_log.yaml cho gate/weak points, knowledge_summary.md cho nội
+  dung ôn tập — C-026 → C-034 + Buổi 34 chốt phần 1, phần 2 TASK-10/11/12 là code thuần cơ học
+  không log riêng vì không có khái niệm mới). Trọng tâm sprint: chuyển mental model từ "quản state
+  thủ công / Redux-Saga" sang "server state là cache tự động" (TanStack Query) và "mutate cache
+  trực tiếp" (queryClient.setQueryData) thay vì dispatch action — đào sâu nhất ở TASK-9.
+  Carry-over từ Sprint 1: nhắc lại phân biệt useMemo/React.memo khi tới FlashList (TASK-5), vì đây
+  mới là ngữ cảnh "list dài" thật sự cần memo (C-021 concept_log).
+
+  Kết quả bàn giao: feed trận đấu (mock, 3 trạng thái LIVE/FINISHED/SCHEDULED) render bằng FlashList
+  qua useMatches(), có skeleton/error/empty/pull-to-refresh; bấm vào 1 trận → match/[id] hiện ngay
+  nhờ prefetch (setQueryData trước khi push), timeline sự kiện render bằng FlashList; WebSocket
+  client tự reconnect có backoff + dọn kết nối theo AppState; useLiveScoreSync() mutate cache
+  list+detail trực tiếp khi có event GOAL/CARD/STATUS_CHANGE, không invalidateQueries; logo đội
+  dùng expo-image (cache 2 tầng + downsampling) qua Avatar.tsx.
+
+  Phát hiện đáng chú ý trong quá trình làm:
+  - TASK-9: code + gate quiz đã hoàn thành ở 1 session trước nhưng bị BỎ SÓT bước ghi log
+    (concept_log.yaml/knowledge_summary.md) — phát hiện khi review lại theo yêu cầu người học, đã
+    bổ sung log retroactive (C-034), kèm lưu ý rủi ro này cho các sprint sau (đúng cảnh báo có sẵn
+    trong skill learn-then-build).
+  - TASK-11: FlashList v2 (`^2.3.2`) đã BỎ prop `estimatedItemSize` (tự động đo kích thước item),
+    khác hẳn kiến thức gốc dạy ở TASK-5 Sprint 2 (dựa trên FlashList v1) — phát hiện qua lỗi
+    TypeScript thực tế lúc code, không phải đoán, đã sửa và cập nhật hiểu biết trong
+    knowledge_summary.md.
+  - TASK-15 (convention audit, chạy qua agent riêng): 6/6 tiêu chí PASS, có bằng chứng file:line cụ
+    thể — xem .agents/artifacts/sprint-002/qa_report@v1.yaml.
+
+  Nợ kỹ thuật/việc còn treo, CỐ Ý chưa dọn theo quyết định của người học:
+  - Nút "[TEST] Bắn GOAL cho m1/t1" trong app/(tabs)/index.tsx (dùng wsClient.emitMockEvent) vẫn
+    còn trong code — dùng để tự verify setQueryData không cần WS server thật, nhưng hardcode
+    matchId/teamId khớp mock hiện tại, sẽ silently no-op nếu mock đổi ID.
+  - TASK-16 (kiểm thủ công trên Simulator): người học CHỦ ĐỘNG quyết định đóng sprint-002 mà
+    KHÔNG chạy bước này — không phải quên, không phải sự cố kỹ thuật, mà là lựa chọn có ý thức để
+    dừng ở static analysis + convention audit. Vì vậy sprint được đánh dấu `completed`, nhưng
+    qa_report@v1.yaml vẫn giữ `release_ready: false` — mình không tự ý đổi thành true cho một thứ
+    chưa thật sự được xác nhận chạy đúng trên thiết bị/simulator, kể cả khi người học đồng ý bỏ
+    qua bước đó. Nếu phát sinh bug UI/runtime không bắt được bằng tsc/eslint (ví dụ animation giật,
+    layout vỡ trên thiết bị thật) ở các sprint sau, đây là lý do đã biết trước.

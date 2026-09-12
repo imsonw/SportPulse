@@ -31,7 +31,10 @@ export class WSClient {
     this.isIntentionallyClosed = false;
 
     // Tránh khởi tạo chồng chéo nếu socket đang mở hoặc đang kết nối
-    if (this.socket && (this.socket.readyState === WebSocket.CONNECTING || this.socket.readyState === WebSocket.OPEN)) {
+    if (
+      this.socket &&
+      (this.socket.readyState === WebSocket.CONNECTING || this.socket.readyState === WebSocket.OPEN)
+    ) {
       return;
     }
 
@@ -72,7 +75,7 @@ export class WSClient {
 
   /**
    * Tính toán thời gian lùi theo thuật toán Exponential Backoff và đặt Timer thử kết nối lại.
-   * 
+   *
    * WHY: Thuật toán (initialDelay * 2^retryCount) giới hạn bởi maxRetryDelay giúp tránh bào mòn
    * tài nguyên Pin thiết bị và ngăn chặn hiện tượng dồn ép làm sập Server khi mạng khôi phục.
    */
@@ -83,7 +86,7 @@ export class WSClient {
 
     const delay = Math.min(
       this.initialRetryDelay * Math.pow(2, this.retryCount),
-      this.maxRetryDelay
+      this.maxRetryDelay,
     );
 
     this.retryCount++;

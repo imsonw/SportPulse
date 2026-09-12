@@ -128,7 +128,7 @@ const MOCK_MATCHES: Match[] = [
 
 /**
  * Giả lập API fetch danh sách trận đấu bất đồng bộ.
- * 
+ *
  * WHY: Dùng `Promise` + `setTimeout` thay vì mảng JSON đồng bộ để ép tầng UI/TanStack Query
  * phải xử lý trạng thái Loading (Skeleton) và Async Lifecycle thực tế.
  */
@@ -140,7 +140,7 @@ export const fetchMatches = async (): Promise<Match[]> => {
 
 /**
  * Giả lập API fetch chi tiết một trận đấu theo ID.
- * 
+ *
  * WHY: Giữ đúng Async Signature với throw error khi không tìm thấy match,
  * giúp TanStack Query bắt đúng trạng thái isError / error.
  */

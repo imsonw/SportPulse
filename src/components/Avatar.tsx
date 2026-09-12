@@ -1,4 +1,5 @@
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
+import { StyleSheet, Text, View } from 'react-native';
 import { typography, useThemeColors } from '@/theme';
 
 interface AvatarProps {
@@ -13,7 +14,11 @@ export function Avatar({ name, uri, size = 40 }: AvatarProps) {
   const dimensionStyle = { width: size, height: size, borderRadius: size / 2 };
 
   if (uri) {
-    return <Image source={{ uri }} style={dimensionStyle} />;
+    // contentFit="cover": logo đội thường không vuông tuyệt đối, "cover" lấp đầy khung tròn
+    // (cắt bớt phần thừa) thay vì "contain" để trống viền, đúng bẫy #2 vừa học.
+    // width/height cố định qua dimensionStyle (không phụ thuộc container) là điều kiện BẮT BUỘC
+    // để expo-image downsample đúng — thiếu nó thì mất hết lợi ích so với Image gốc (bẫy #1).
+    return <Image source={{ uri }} style={dimensionStyle} contentFit="cover" />;
   }
 
   return (

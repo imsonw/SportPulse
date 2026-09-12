@@ -1,18 +1,29 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Avatar } from '@/components/Avatar';
 import { Card } from '@/components/Card';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingSkeleton } from '@/components/LoadingSkeleton';
 import { ScoreBadge } from '@/components/ScoreBadge';
-import { useMatches } from '@/features/matches/hooks';
+import { matchKeys, useMatches } from '@/features/matches/hooks';
 import { Match } from '@/features/matches/types';
 import { wsClient } from '@/lib/ws-client';
 import { spacing, typography, useThemeColors } from '@/theme';
 
 export default function LiveScreen() {
   const colors = useThemeColors();
+  const queryClient = useQueryClient();
   const { data: matches, isPending, isRefetching, refetch, error } = useMatches();
+
+  // WHY: gán thẳng `item` (đã đủ dữ liệu, lấy từ cache list) vào cache detail TRƯỚC khi push.
+  // Không gọi prefetchQuery/fetch lại vì item đã là dữ liệu đầy đủ — không có network nào để chờ,
+  // nên match/[id] mount lên là isPending=false ngay, không có khoảng loading nào cả.
+  const handlePressMatch = (item: Match) => {
+    queryClient.setQueryData(matchKeys.detail(item.id), item);
+    router.push(`/match/${item.id}`);
+  };
 
   // WHY: Chỉ render LoadingSkeleton khi isPending (lần đầu tiên mở màn hình, CHƯA CÓ dữ liệu trong cache).
   // Tuyệt đối không dùng isFetching ở đây vì khi user Pull-to-refresh hoặc refetch ngầm ở background,
@@ -40,18 +51,29 @@ export default function LiveScreen() {
   }
 
   const renderMatchItem = ({ item }: { item: Match }) => (
-    <Pressable style={styles.cardWrapper} onPress={() => router.push(`/match/${item.id}`)}>
+    <Pressable style={styles.cardWrapper} onPress={() => handlePressMatch(item)}>
       <Card style={styles.cardContent}>
         <View style={styles.teamRow}>
-          <Text style={[styles.teamName, { color: colors.text }]}>{item.homeTeam.name}</Text>
+          <View style={styles.teamCell}>
+            <Avatar name={item.homeTeam.name} uri={item.homeTeam.logoUrl} size={28} />
+            <Text style={[styles.teamName, { color: colors.text }]} numberOfLines={1}>
+              {item.homeTeam.name}
+            </Text>
+          </View>
           <ScoreBadge
             homeScore={item.homeScore}
             awayScore={item.awayScore}
             isLive={item.status === 'LIVE'}
           />
-          <Text style={[styles.teamName, { color: colors.text, textAlign: 'right' }]}>
-            {item.awayTeam.name}
-          </Text>
+          <View style={[styles.teamCell, styles.teamCellReversed]}>
+            <Text
+              style={[styles.teamName, { color: colors.text, textAlign: 'right' }]}
+              numberOfLines={1}
+            >
+              {item.awayTeam.name}
+            </Text>
+            <Avatar name={item.awayTeam.name} uri={item.awayTeam.logoUrl} size={28} />
+          </View>
         </View>
         <View style={styles.statusRow}>
           <Text style={[styles.statusText, { color: colors.textMuted }]}>
@@ -129,6 +151,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  teamCell: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  teamCellReversed: {
+    justifyContent: 'flex-end',
   },
   teamName: {
     flex: 1,
